@@ -6,7 +6,6 @@ let prevactiveBezier
 let bpointArray = []
 let baseArray = []
 let drawControls = true
-let goodwindowSize
 //let bpointAmmount = 4
 
 function setup() {
