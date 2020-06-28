@@ -6,6 +6,7 @@ let prevactiveBezier
 let bpointArray = []
 let baseArray = []
 let drawControls = true
+let goodwindowSize
 //let bpointAmmount = 4
 
 function setup() {
@@ -20,21 +21,21 @@ function setup() {
   // }
   let cw = (width / 2)
   let ch = (height / 2)
-  bpointArray.push(new Bpoint(true,createVector(cw - 200, ch - 50), createVector(cw - 125, ch - 50), createVector(cw - 275, ch - 50), 0))
-  bpointArray.push(new Bpoint(true,createVector(cw - 200, ch + 50), createVector(cw - 275, ch + 50), createVector(cw - 125, ch + 50), 1))
-  bpointArray.push(new Bpoint(true,createVector(cw + 200, ch + 50), createVector(cw + 125, ch + 50), createVector(cw + 275, ch + 50), 2))
-  bpointArray.push(new Bpoint(true,createVector(cw + 200, ch - 50), createVector(cw + 275, ch - 50), createVector(cw + 125, ch - 50), 3))
+  bpointArray.push(new Bpoint(true, createVector(cw - 200, ch - 50), createVector(cw - 125, ch - 50), createVector(cw - 275, ch - 50), 0))
+  bpointArray.push(new Bpoint(true, createVector(cw - 200, ch + 50), createVector(cw - 275, ch + 50), createVector(cw - 125, ch + 50), 1))
+  bpointArray.push(new Bpoint(true, createVector(cw + 200, ch + 50), createVector(cw + 125, ch + 50), createVector(cw + 275, ch + 50), 2))
+  bpointArray.push(new Bpoint(true, createVector(cw + 200, ch - 50), createVector(cw + 275, ch - 50), createVector(cw + 125, ch - 50), 3))
 
 }
 
 function draw() {
   background(240)
-  if (drawControls = true){
-  for (let i = 0; i < bpointArray.length; i++) { //control Bpoints and handles
-    bpointArray[i].calcMouse();
-    bpointArray[i].displayBpoint();
+  if (drawControls = true) {
+    for (let i = 0; i < bpointArray.length; i++) { //control Bpoints and handles
+      bpointArray[i].calcMouse();
+      bpointArray[i].displayBpoint();
+    }
   }
-}
   drawBezier()
   drawAttractor()
 }
@@ -60,8 +61,8 @@ function Bpoint(basestatus, pos, h1pos, h2pos, index) {
       this.location.x = mouseX
       this.location.y = mouseY
       let offset = .642 // Offset by which pmouse exceeds mousedrag
-      this.h1location.add((mouseX-pmouseX)*offset,(mouseY-pmouseY)*offset) //adding mousechange to handle vectors
-      this.h2location.add((mouseX-pmouseX)*offset,(mouseY-pmouseY)*offset)
+      this.h1location.add((mouseX - pmouseX) * offset, (mouseY - pmouseY) * offset) //adding mousechange to handle vectors
+      this.h2location.add((mouseX - pmouseX) * offset, (mouseY - pmouseY) * offset)
 
     } else if (this.h1clickable && activeBpoint == this.h1location) {
       if (this.isCorner) {
@@ -173,23 +174,17 @@ function drawAttractor() { // Drawing attractors between base bpoints
 
 function createBpoint() {
   if ((activeBezier && prevactiveBezier != undefined)) {
-    // if (activeBezier.index == 0){
-    //   let r = p5.Vector.lerp(activeBezier.location,prevactiveBezier.location,0.5)
-    //   let h1 = p5.Vector.lerp(r,prevactiveBezier.location,.2)
-    //   let h2 = p5.Vector.lerp(r,activeBezier.location,.2)
-    //   bpointArray.splice(prevactiveBezier.index+1,0,new Bpoint(r, h1, h2, false,activeBezier.index))
-    // }
     if ((activeBezier.index < prevactiveBezier.index) && (activeBezier.index !== 0)) {
       [activeBezier, prevactiveBezier] = [prevactiveBezier, activeBezier] // switches activeBeziers
     }
-      let r = p5.Vector.lerp(activeBezier.location, prevactiveBezier.location, 0.5)
-      let h1 = p5.Vector.lerp(r, prevactiveBezier.location, .2)
-      let h2 = p5.Vector.lerp(r, activeBezier.location, .2)
-      if ((activeBezier.index && prevactiveBezier.index) !== 0) {
-        bpointArray.splice(prevactiveBezier.index + 1, 0, new Bpoint(false, r, h1, h2, activeBezier.index)) //creates newBpoint in the path between active and preactvie Beiers
-      } else {
-        bpointArray.push(new Bpoint(false, r, h1, h2, bpointArray.length))
-      }
+    let r = p5.Vector.lerp(activeBezier.location, prevactiveBezier.location, 0.5)
+    let h1 = p5.Vector.lerp(r, prevactiveBezier.location, .2)
+    let h2 = p5.Vector.lerp(r, activeBezier.location, .2)
+    if ((activeBezier.index && prevactiveBezier.index) !== 0) {
+      bpointArray.splice(prevactiveBezier.index + 1, 0, new Bpoint(false, r, h1, h2, activeBezier.index)) //creates newBpoint in the path between active and preactvie Beiers
+    } else {
+      bpointArray.push(new Bpoint(false, r, h1, h2, bpointArray.length))
+    }
   }
   for (let i = 0; i < bpointArray.length; i++) { //updatinng indexes
     bpointArray[i].index = i
