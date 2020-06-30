@@ -8,7 +8,7 @@ let baseArray = []
 let drawControls = true
 let finalBeziers = []
 let jsonCount = 0
-//let bpointAmmount = 4
+let pageCenter
 
 function preload() {
   savedknots = loadJSON("data/knotJSON0.json");
@@ -18,12 +18,6 @@ function setup() {
   createCanvas(windowWidth, windowHeight - 4);
   background(240);
   noStroke();
-  // for (let i = 0; i < bpointAmmount; i++) { /// Initializing Bpoints
-  //   let rpos = createVector(50 + (i * ((width - 50) / bpointAmmount)), height / 2) // In a line
-  //   let h1 = createVector(rpos.x - 20, rpos.y - 20)
-  //   let h2 = createVector(rpos.x + 20, rpos.y + 20)
-  //   bpointArray.push(new Bpoint(rpos, h1, h2, false))
-  // }
   let cw = (width / 2)
   let ch = (height / 2)
   bpointArray.push(new Bpoint(true, createVector(cw - 200, ch - 50), createVector(cw - 125, ch - 50), createVector(cw - 275, ch - 50), 0))
@@ -169,13 +163,13 @@ function drawBezier() {
 function updatebpointArray(json) {
   if (bpointArray.length == Object.keys(json).length) {
     print("bby")
-    for (i = 0; i < bpointArray.length; i++) { // replacing bpoint params
-      bpointArray[i].location.x = json[i].lx;
-      bpointArray[i].location.y = json[i].ly;
-      bpointArray[i].h1location.x = json[i].h1x;
-      bpointArray[i].h1location.y = json[i].h1y;
-      bpointArray[i].h2location.x = json[i].h2x;
-      bpointArray[i].h2location.y = json[i].h2y;
+    for (i = 0; i < bpointArray.length; i++) { // replacing bpoint params, addingcenter and window offset to positions
+      bpointArray[i].location.x = json[i].lx + ((windowWidth/2)-json[i].cx) + json[i].offx
+      bpointArray[i].location.y = json[i].ly + ((windowHeight/2)-json[i].cy) + json[i].offy
+      bpointArray[i].h1location.x = json[i].h1x + ((windowWidth/2)-json[i].cx) + json[i].offx
+      bpointArray[i].h1location.y = json[i].h1y + ((windowHeight/2)-json[i].cy) + json[i].offy
+      bpointArray[i].h2location.x = json[i].h2x + ((windowWidth/2)-json[i].cx) + json[i].offx
+      bpointArray[i].h2location.y = json[i].h2y + ((windowHeight/2)-json[i].cy) + json[i].offy
       bpointArray[i].index = json[i].index;
       bpointArray[i].isBase = json[i].isBase;
     }
@@ -198,6 +192,7 @@ function drawAttractor() { // Drawing attractors between base bpoints
   fill(240)
   ellipse(apos1.x, apos1.y, 20)
   ellipse(apos2.x, apos2.y, 20)
+  pageCenter = p5.Vector.lerp(apos1,apos2,.5)
 }
 
 function createBpoint() {
@@ -217,6 +212,7 @@ function createBpoint() {
   for (let i = 0; i < bpointArray.length; i++) { //updatinng indexes
     bpointArray[i].index = i
   }
+  print("current Bpoints:" + bpointArray.length)
 }
 
 function deleteBpoint() {
@@ -254,15 +250,20 @@ function keyPressed() {
     }
     downloadObjectAsJson(finalBeziers, "knotJSON" + jsonCount)
     jsonCount++
+    print("saved json")
   }
   if (keyCode === 84) { // t
     updatebpointArray(savedknots) // change location for dots to savedknots json
   }
 }
 
-function Bpointpos(index, basestatus, posx, posy, h1posx, h1posy, h2posx, h2posy) { // simplified Bpoints for saving in json
+function Bpointpos(index, basestatus,posx, posy, h1posx, h1posy, h2posx, h2posy) { // simplified Bpoints for saving in json
   this.index = index
   this.isBase = basestatus
+  this.offx = (windowWidth/2) - pageCenter.x //saving the offset, the diff between center of bases and center of page
+  this.offy = (windowHeight/2) - pageCenter.y
+  this.cx = (windowWidth/2)// saving the current canvas size
+  this.cy = (windowHeight/2)
   this.lx = posx
   this.ly = posy
   this.h1x = h1posx
