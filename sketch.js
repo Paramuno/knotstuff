@@ -10,6 +10,8 @@ let finalBeziers = []
 let jsonCount = 0
 let pageCenter
 
+var nenetio = new Bezier(100,25 , 10,90 , 110,100 , 150,195);
+
 function preload() {
   savedknots = loadJSON("data/knotJSON0.json");
 }
