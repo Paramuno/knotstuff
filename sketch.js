@@ -254,7 +254,7 @@ function createBpoint() {
     if ((activeBezier.index && prevactiveBezier.index) !== 0) {
       //bpointArray.splice(prevactiveBezier.index + 1, 0, new Bpoint(false, r, h1, h2, activeBezier.index)) //creates newBpoint in the path between active and preactvie Beiers
       bpointArray.splice(prevactiveBezier.index + 1, 0, new Bpoint(false, r, r, r, activeBezier.index))
-    } else if (prevactiveBezier.index == 0) {
+    } else if (prevactiveBezier.index == 0) { // Fixed invertion of handles for the preactivebezier.index = 0 
       tempBezier = new Bezier(activeBezier.location.x, activeBezier.location.y, activeBezier.h2location.x, activeBezier.h2location.y,
         prevactiveBezier.h1location.x, prevactiveBezier.h1location.y, prevactiveBezier.location.x, prevactiveBezier.location.y)
         r = tempBezier.get(.5)
