@@ -21,8 +21,8 @@ let interpolating = false // Are we interpolating rn?
 // let ctx
 
 function preload() {
-  savedknots = loadJSON("data/knotJSON0.json")
-  savedknots1 = loadJSON("data/knotJSON1.json")
+  savedknots = loadJSON("data/knotJSON2.json")
+  savedknots1 = loadJSON("data/knotJSON3.json")
 }
 
 function setup() {
@@ -45,6 +45,7 @@ function setup() {
   knotspaceX = createSlider(0, 100, 0);
   knotspaceX.position(150, 5);
   // tempBezier = new Bezier(100,25 , 10,90 , 110,100 , 150,195) //Initializing tempBezier
+  print("Knotsize: 24 Bpoints")
 }
 
 function draw() {
@@ -294,14 +295,7 @@ function compensateHandle(h1isfirst) { // reducing the handle length to compensa
   }
 }
 
-function interpolateVec(p1, p2, i) { // interpolates 2 points at one i pos
-  let ix = p1.x + (p2.x - p1.x) * i;
-  let iy = p1.y + (p2.y - p1.y) * i;
-  let a = createVector(ix, iy);
-  return a; // returns vector iterpolated at point i
-}
-
-function interpolatebpointArray(json1, json2) {
+function interpolatebpointArray(json1, json2) { //add the possibility to undulate in the static points
   let ksX = map(knotspaceX.value(), 0, 100, 0, 1)
 
   let locorigin = createVector()
