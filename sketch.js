@@ -13,12 +13,16 @@ let finalBeziers = [] // array of copied bpoint subobjects for saving
 let jsonCount = 0
 let pageCenter // offset for centering
 
+let knotspaceX // Current position in whislte range
+let interpolating = false // Are we interpolating rn?
+
 // let tempBezier // tempBezier for comparison, the tempBezier is drawn with another draw function
 // let canvas
 // let ctx
 
 function preload() {
   savedknots = loadJSON("data/knotJSON0.json")
+  savedknots1 = loadJSON("data/knotJSON1.json")
 }
 
 function setup() {
@@ -38,6 +42,8 @@ function setup() {
       baseArray.push(bpointArray[i])
     }
   }
+  knotspaceX = createSlider(0, 100, 0);
+  knotspaceX.position(150, 5);
   // tempBezier = new Bezier(100,25 , 10,90 , 110,100 , 150,195) //Initializing tempBezier
 }
 
@@ -51,6 +57,9 @@ function draw() {
   }
   drawBezier()
   drawAttractor()
+  if (interpolating) {
+    interpolatebpointArray(savedknots, savedknots1)
+  }
 }
 
 function Bpoint(basestatus, pos, h1pos, h2pos, index) {
@@ -275,7 +284,7 @@ function createBpoint() {
 }
 
 function compensateHandle(h1isfirst) { // reducing the handle length to compensate for new point in the middle of previous bezier
-let factor = .245
+  let factor = .245
   if (h1isfirst) {
     activeBezier.h1location = p5.Vector.lerp(activeBezier.h1location, activeBezier.location, factor)
     prevactiveBezier.h2location = p5.Vector.lerp(prevactiveBezier.h2location, prevactiveBezier.location, factor)
@@ -284,6 +293,49 @@ let factor = .245
     prevactiveBezier.h1location = p5.Vector.lerp(prevactiveBezier.h1location, prevactiveBezier.location, factor)
   }
 }
+
+function interpolateVec(p1, p2, i) { // interpolates 2 points at one i pos
+  let ix = p1.x + (p2.x - p1.x) * i;
+  let iy = p1.y + (p2.y - p1.y) * i;
+  let a = createVector(ix, iy);
+  return a; // returns vector iterpolated at point i
+}
+
+function interpolatebpointArray(json1, json2) {
+  let ksX = map(knotspaceX.value(), 0, 100, 0, 1)
+
+  let locorigin = createVector()
+  let h1origin = createVector()
+  let h2origin = createVector()
+  let loctarget = createVector()
+  let h1target = createVector()
+  let h2target = createVector()
+
+  if (bpointArray.length == Object.keys(json1).length) {
+    for (i = 0; i < bpointArray.length; i++) {
+      locorigin.x = json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
+      locorigin.y = json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
+      h1origin.x = json1[i].h1x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
+      h1origin.y = json1[i].h1y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
+      h2origin.x = json1[i].h2x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
+      h2origin.y = json1[i].h2y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
+
+      loctarget.x = json2[i].lx + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
+      loctarget.y = json2[i].ly + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
+      h1target.x = json2[i].h1x + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
+      h1target.y = json2[i].h1y + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
+      h2target.x = json2[i].h2x + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
+      h2target.y = json2[i].h2y + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
+
+      bpointArray[i].location = p5.Vector.lerp(locorigin, loctarget, ksX)
+      bpointArray[i].h1location = p5.Vector.lerp(h1origin, h1target, ksX)
+      bpointArray[i].h2location = p5.Vector.lerp(h2origin, h2target, ksX)
+    }
+  } else { // consoleprint the number of bpoints required
+    print("add Bpoints:" + bpointArray.length + "/" + Object.keys(json1).length)
+  }
+}
+
 
 function deleteBpoint() {
   bpointArray.splice(activeBezier.index, 1) // in position index, delete 1 element
@@ -323,7 +375,10 @@ function keyPressed() {
     print("saved json")
   }
   if (keyCode === 84) { // t
-    updatebpointArray(savedknots) // change location for dots to savedknots json
+    updatebpointArray(savedknots1) // change location for dots to savedknots json
+  }
+  if (keyCode === 73) { // i
+    interpolating = !interpolating // allow interpolation
   }
 }
 
