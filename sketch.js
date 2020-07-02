@@ -1,23 +1,34 @@
 const w = 700
 const h = 700
-let activeBpoint
-let activeBezier
+let drawControls = true
+
+let activeBpoint // vector location of activebpoint
+
+let activeBezier // active bezier bpoint object
 let prevactiveBezier
 let bpointArray = []
-let baseArray = []
-let drawControls = true
-let finalBeziers = []
-let jsonCount = 0
-let pageCenter
+let baseArray = [] // array of base bpoint objects
 
-var nenetio = new Bezier(100,25 , 10,90 , 110,100 , 150,195);
+let finalBeziers = [] // array of copied bpoint subobjects for saving
+let jsonCount = 0
+let pageCenter // offset for centering
+
+let knotspaceX // Current position in whislte range
+let interpolating = false // Are we interpolating rn?
+
+// let tempBezier // tempBezier for comparison, the tempBezier is drawn with another draw function
+// let canvas
+// let ctx
 
 function preload() {
-  savedknots = loadJSON("data/knotJSON0.json");
+  savedknots = loadJSON("data/knotJSON2.json")
+  savedknots1 = loadJSON("data/knotJSON3.json")
 }
 
 function setup() {
   createCanvas(windowWidth, windowHeight - 4);
+  // canvas = document.getElementById("defaultCanvas0") // initializing drawcanvas
+  // ctx = canvas.getContext("2d")
   background(240);
   noStroke();
   let cw = (width / 2)
@@ -31,6 +42,10 @@ function setup() {
       baseArray.push(bpointArray[i])
     }
   }
+  knotspaceX = createSlider(0, 100, 0);
+  knotspaceX.position(150, 5);
+  // tempBezier = new Bezier(100,25 , 10,90 , 110,100 , 150,195) //Initializing tempBezier
+  print("Knotsize: 24 Bpoints")
 }
 
 function draw() {
@@ -43,6 +58,9 @@ function draw() {
   }
   drawBezier()
   drawAttractor()
+  if (interpolating) {
+    interpolatebpointArray(savedknots, savedknots1)
+  }
 }
 
 function Bpoint(basestatus, pos, h1pos, h2pos, index) {
@@ -160,18 +178,21 @@ function drawBezier() {
     bpointArray[0].h1location.x, bpointArray[0].h1location.y,
     bpointArray[0].location.x, bpointArray[0].location.y)
   endShape();
+
+
+  // drawCurve(tempBezier) //other drawcurve function
 }
 
 function updatebpointArray(json) {
   if (bpointArray.length == Object.keys(json).length) {
     print("bby")
     for (i = 0; i < bpointArray.length; i++) { // replacing bpoint params, addingcenter and window offset to positions
-      bpointArray[i].location.x = json[i].lx + ((windowWidth/2)-json[i].cx) + json[i].offx
-      bpointArray[i].location.y = json[i].ly + ((windowHeight/2)-json[i].cy) + json[i].offy
-      bpointArray[i].h1location.x = json[i].h1x + ((windowWidth/2)-json[i].cx) + json[i].offx
-      bpointArray[i].h1location.y = json[i].h1y + ((windowHeight/2)-json[i].cy) + json[i].offy
-      bpointArray[i].h2location.x = json[i].h2x + ((windowWidth/2)-json[i].cx) + json[i].offx
-      bpointArray[i].h2location.y = json[i].h2y + ((windowHeight/2)-json[i].cy) + json[i].offy
+      bpointArray[i].location.x = json[i].lx + ((windowWidth / 2) - json[i].cx) + json[i].offx
+      bpointArray[i].location.y = json[i].ly + ((windowHeight / 2) - json[i].cy) + json[i].offy
+      bpointArray[i].h1location.x = json[i].h1x + ((windowWidth / 2) - json[i].cx) + json[i].offx
+      bpointArray[i].h1location.y = json[i].h1y + ((windowHeight / 2) - json[i].cy) + json[i].offy
+      bpointArray[i].h2location.x = json[i].h2x + ((windowWidth / 2) - json[i].cx) + json[i].offx
+      bpointArray[i].h2location.y = json[i].h2y + ((windowHeight / 2) - json[i].cy) + json[i].offy
       bpointArray[i].index = json[i].index;
       bpointArray[i].isBase = json[i].isBase;
     }
@@ -194,21 +215,67 @@ function drawAttractor() { // Drawing attractors between base bpoints
   fill(240)
   ellipse(apos1.x, apos1.y, 20)
   ellipse(apos2.x, apos2.y, 20)
-  pageCenter = p5.Vector.lerp(apos1,apos2,.5)
+  pageCenter = p5.Vector.lerp(apos1, apos2, .5)
 }
+
+// function drawCurve(curve, offset) {
+//   stroke(50)
+//   strokeWeight(1)
+//   offset = offset || {
+//     x: 0,
+//     y: 0
+//   };
+//   var ox = offset.x;
+//   var oy = offset.y;
+//   ctx.beginPath();
+//   var p = curve.points,
+//     i;
+//   ctx.moveTo(p[0].x + ox, p[0].y + oy);
+//   if (p.length === 3) {
+//     ctx.quadraticCurveTo(
+//       p[1].x + ox, p[1].y + oy,
+//       p[2].x + ox, p[2].y + oy
+//     );
+//   }
+//   if (p.length === 4) {
+//     ctx.bezierCurveTo(
+//       p[1].x + ox, p[1].y + oy,
+//       p[2].x + ox, p[2].y + oy,
+//       p[3].x + ox, p[3].y + oy
+//     );
+//   }
+//   ctx.stroke();
+//   ctx.closePath();
+// } // other drawcurve function
 
 function createBpoint() {
   if ((activeBezier && prevactiveBezier != undefined)) {
     if ((activeBezier.index < prevactiveBezier.index) && (activeBezier.index !== 0)) {
       [activeBezier, prevactiveBezier] = [prevactiveBezier, activeBezier] // switches activeBeziers
     }
-    let r = p5.Vector.lerp(activeBezier.location, prevactiveBezier.location, 0.5)
-    let h1 = p5.Vector.lerp(r, prevactiveBezier.location, .2)
-    let h2 = p5.Vector.lerp(r, activeBezier.location, .2)
+    // let r = p5.Vector.lerp(activeBezier.location, prevactiveBezier.location, 0.5) // previous system which created newbpoint in the .5lerp of actiev bpoints
+    // let h1 = p5.Vector.lerp(r, prevactiveBezier.location, .2)
+    // let h2 = p5.Vector.lerp(r, activeBezier.location, .2)
+    tempBezier = new Bezier(activeBezier.location.x, activeBezier.location.y, activeBezier.h1location.x, activeBezier.h1location.y,
+      prevactiveBezier.h2location.x, prevactiveBezier.h2location.y, prevactiveBezier.location.x, prevactiveBezier.location.y)
+
+    let r = tempBezier.get(.5)
+
     if ((activeBezier.index && prevactiveBezier.index) !== 0) {
-      bpointArray.splice(prevactiveBezier.index + 1, 0, new Bpoint(false, r, h1, h2, activeBezier.index)) //creates newBpoint in the path between active and preactvie Beiers
-    } else {
-      bpointArray.push(new Bpoint(false, r, h1, h2, bpointArray.length))
+      //bpointArray.splice(prevactiveBezier.index + 1, 0, new Bpoint(false, r, h1, h2, activeBezier.index)) // Old system: creates newBpoint in the path between active and preactvie Beiers
+      bpointArray.splice(prevactiveBezier.index + 1, 0, new Bpoint(false, r, r, r, activeBezier.index))
+      compensateHandle(true)
+    } else if (prevactiveBezier.index == 0) { // Fixed invertion of handles for special case preactivebezier.index = 0
+
+      tempBezier = new Bezier(activeBezier.location.x, activeBezier.location.y, activeBezier.h2location.x, activeBezier.h2location.y,
+        prevactiveBezier.h1location.x, prevactiveBezier.h1location.y, prevactiveBezier.location.x, prevactiveBezier.location.y)
+      r = tempBezier.get(.5)
+
+      bpointArray.push(new Bpoint(false, r, r, r, bpointArray.length))
+      compensateHandle(false)
+    } else { // if activeBezier is 0, push new Bpoint instead of splicing
+      bpointArray.push(new Bpoint(false, r, r, r, bpointArray.length))
+      compensateHandle(true)
     }
   }
   for (let i = 0; i < bpointArray.length; i++) { //updatinng indexes
@@ -216,6 +283,53 @@ function createBpoint() {
   }
   print("current Bpoints:" + bpointArray.length)
 }
+
+function compensateHandle(h1isfirst) { // reducing the handle length to compensate for new point in the middle of previous bezier
+  let factor = .245
+  if (h1isfirst) {
+    activeBezier.h1location = p5.Vector.lerp(activeBezier.h1location, activeBezier.location, factor)
+    prevactiveBezier.h2location = p5.Vector.lerp(prevactiveBezier.h2location, prevactiveBezier.location, factor)
+  } else {
+    activeBezier.h2location = p5.Vector.lerp(activeBezier.h2location, activeBezier.location, factor)
+    prevactiveBezier.h1location = p5.Vector.lerp(prevactiveBezier.h1location, prevactiveBezier.location, factor)
+  }
+}
+
+function interpolatebpointArray(json1, json2) { //add the possibility to undulate in the static points
+  let ksX = map(knotspaceX.value(), 0, 100, 0, 1)
+
+  let locorigin = createVector()
+  let h1origin = createVector()
+  let h2origin = createVector()
+  let loctarget = createVector()
+  let h1target = createVector()
+  let h2target = createVector()
+
+  if (bpointArray.length == Object.keys(json1).length) {
+    for (i = 0; i < bpointArray.length; i++) {
+      locorigin.x = json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
+      locorigin.y = json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
+      h1origin.x = json1[i].h1x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
+      h1origin.y = json1[i].h1y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
+      h2origin.x = json1[i].h2x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
+      h2origin.y = json1[i].h2y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
+
+      loctarget.x = json2[i].lx + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
+      loctarget.y = json2[i].ly + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
+      h1target.x = json2[i].h1x + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
+      h1target.y = json2[i].h1y + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
+      h2target.x = json2[i].h2x + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
+      h2target.y = json2[i].h2y + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
+
+      bpointArray[i].location = p5.Vector.lerp(locorigin, loctarget, ksX)
+      bpointArray[i].h1location = p5.Vector.lerp(h1origin, h1target, ksX)
+      bpointArray[i].h2location = p5.Vector.lerp(h2origin, h2target, ksX)
+    }
+  } else { // consoleprint the number of bpoints required
+    print("add Bpoints:" + bpointArray.length + "/" + Object.keys(json1).length)
+  }
+}
+
 
 function deleteBpoint() {
   bpointArray.splice(activeBezier.index, 1) // in position index, delete 1 element
@@ -255,17 +369,20 @@ function keyPressed() {
     print("saved json")
   }
   if (keyCode === 84) { // t
-    updatebpointArray(savedknots) // change location for dots to savedknots json
+    updatebpointArray(savedknots1) // change location for dots to savedknots json
+  }
+  if (keyCode === 73) { // i
+    interpolating = !interpolating // allow interpolation
   }
 }
 
-function Bpointpos(index, basestatus,posx, posy, h1posx, h1posy, h2posx, h2posy) { // simplified Bpoints for saving in json
+function Bpointpos(index, basestatus, posx, posy, h1posx, h1posy, h2posx, h2posy) { // simplified Bpoints for saving in json
   this.index = index
   this.isBase = basestatus
-  this.offx = (windowWidth/2) - pageCenter.x //saving the offset, the diff between center of bases and center of page
-  this.offy = (windowHeight/2) - pageCenter.y
-  this.cx = (windowWidth/2)// saving the current canvas size
-  this.cy = (windowHeight/2)
+  this.offx = (windowWidth / 2) - pageCenter.x //saving the offset, the diff between center of bases and center of page
+  this.offy = (windowHeight / 2) - pageCenter.y
+  this.cx = (windowWidth / 2) // saving the current canvas size
+  this.cy = (windowHeight / 2)
   this.lx = posx
   this.ly = posy
   this.h1x = h1posx
