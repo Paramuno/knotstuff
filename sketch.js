@@ -243,7 +243,7 @@ function createBpoint() {
     if ((activeBezier.index < prevactiveBezier.index) && (activeBezier.index !== 0)) {
       [activeBezier, prevactiveBezier] = [prevactiveBezier, activeBezier] // switches activeBeziers
     }
-    // let r = p5.Vector.lerp(activeBezier.location, prevactiveBezier.location, 0.5)
+    // let r = p5.Vector.lerp(activeBezier.location, prevactiveBezier.location, 0.5) // previous system which created newbpoint in the .5lerp of actiev bpoints
     // let h1 = p5.Vector.lerp(r, prevactiveBezier.location, .2)
     // let h2 = p5.Vector.lerp(r, activeBezier.location, .2)
     tempBezier = new Bezier(activeBezier.location.x, activeBezier.location.y, activeBezier.h1location.x, activeBezier.h1location.y,
@@ -252,21 +252,37 @@ function createBpoint() {
     let r = tempBezier.get(.5)
 
     if ((activeBezier.index && prevactiveBezier.index) !== 0) {
-      //bpointArray.splice(prevactiveBezier.index + 1, 0, new Bpoint(false, r, h1, h2, activeBezier.index)) //creates newBpoint in the path between active and preactvie Beiers
+      //bpointArray.splice(prevactiveBezier.index + 1, 0, new Bpoint(false, r, h1, h2, activeBezier.index)) // Old system: creates newBpoint in the path between active and preactvie Beiers
       bpointArray.splice(prevactiveBezier.index + 1, 0, new Bpoint(false, r, r, r, activeBezier.index))
-    } else if (prevactiveBezier.index == 0) { // Fixed invertion of handles for the preactivebezier.index = 0 
+      compensateHandle(true)
+    } else if (prevactiveBezier.index == 0) { // Fixed invertion of handles for special case preactivebezier.index = 0
+
       tempBezier = new Bezier(activeBezier.location.x, activeBezier.location.y, activeBezier.h2location.x, activeBezier.h2location.y,
         prevactiveBezier.h1location.x, prevactiveBezier.h1location.y, prevactiveBezier.location.x, prevactiveBezier.location.y)
-        r = tempBezier.get(.5)
-        bpointArray.push(new Bpoint(false, r, r, r, bpointArray.length))
-    } else {
+      r = tempBezier.get(.5)
+
       bpointArray.push(new Bpoint(false, r, r, r, bpointArray.length))
+      compensateHandle(false)
+    } else { // if activeBezier is 0, push new Bpoint instead of splicing
+      bpointArray.push(new Bpoint(false, r, r, r, bpointArray.length))
+      compensateHandle(true)
     }
   }
   for (let i = 0; i < bpointArray.length; i++) { //updatinng indexes
     bpointArray[i].index = i
   }
   print("current Bpoints:" + bpointArray.length)
+}
+
+function compensateHandle(h1isfirst) { // reducing the handle length to compensate for new point in the middle of previous bezier
+let factor = .245
+  if (h1isfirst) {
+    activeBezier.h1location = p5.Vector.lerp(activeBezier.h1location, activeBezier.location, factor)
+    prevactiveBezier.h2location = p5.Vector.lerp(prevactiveBezier.h2location, prevactiveBezier.location, factor)
+  } else {
+    activeBezier.h2location = p5.Vector.lerp(activeBezier.h2location, activeBezier.location, factor)
+    prevactiveBezier.h1location = p5.Vector.lerp(prevactiveBezier.h1location, prevactiveBezier.location, factor)
+  }
 }
 
 function deleteBpoint() {
