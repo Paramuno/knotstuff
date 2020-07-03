@@ -6,16 +6,19 @@
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <meta charset="utf-8">
   <meta name="viewport" width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0>
+  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@500&display=swap" rel="stylesheet">
   <style>
     body {
       padding: 0;
       margin: 0;
+      font-family: 'Ubuntu', sans-serif;
     }
   </style>
   <script src="libraries/p5.js"></script>
   <script src="libraries/p5.dom.js"></script>
   <script src="libraries/p5.sound.js"></script>
   <script src="libraries/bezier.js"></script>
+  <script src="libraries/whistledetect/whistle.build.js"></script>
   <script src="sketch.js"></script>
   </div>
 </head>
@@ -26,7 +29,17 @@
         alert("Agranda tu navegador y refresca para ver toda la interfaz - Please resize your browser and refresh to see the whole interface");
       }
     }
+    whistlerr.setConfig({sampleThreshold: 8})
+    // whistlerr.detect(function() {
+    //   whistling = true
+    // })
+    // p5Canvas.getElementById('button').addEventListener('click', function() {
+    //   () => permissiongiven = true,
+    //   whistlerr.detect()
+    //   })
   </script>
   <a id="downloadAnchorElem" style="display:none"></a>
+
+
 </body>
 </html>

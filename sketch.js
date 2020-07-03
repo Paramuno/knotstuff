@@ -1,5 +1,3 @@
-const w = 700
-const h = 700
 let drawControls = true
 
 let activeBpoint // vector location of activebpoint
@@ -15,10 +13,15 @@ let pageCenter // offset for centering
 
 let knotspaceX // Current position in whislte range
 let interpolating = false // Are we interpolating rn?
+let microphonePermission
+let permissiongiven = false
+let whistling = false // Is whistling detected?
 
 // let tempBezier // tempBezier for comparison, the tempBezier is drawn with another draw function
 // let canvas
 // let ctx
+
+
 
 function preload() {
   savedknots = loadJSON("data/knotJSON2.json")
@@ -27,6 +30,7 @@ function preload() {
 
 function setup() {
   createCanvas(windowWidth, windowHeight - 4);
+  getAudioContext().suspend();
   // canvas = document.getElementById("defaultCanvas0") // initializing drawcanvas
   // ctx = canvas.getContext("2d")
   background(240);
@@ -42,24 +46,37 @@ function setup() {
       baseArray.push(bpointArray[i])
     }
   }
-  knotspaceX = createSlider(0, 100, 0);
-  knotspaceX.position(150, 5);
+  knotspaceX = createSlider(0, 100, 0)
+  knotspaceX.position(150, 5)
+  // microphonePermission = createButton('Click para activar micrófono')
+  // microphonePermission.position(cw, ch)
+  // microphonePermission.id('button')
+  // microphonePermission.mousePressed(() => permissiongiven = true)
   // tempBezier = new Bezier(100,25 , 10,90 , 110,100 , 150,195) //Initializing tempBezier
   print("Knotsize: 24 Bpoints")
 }
 
 function draw() {
-  background(240)
-  if (drawControls) {
-    for (let i = 0; i < bpointArray.length; i++) { //control Bpoints and handles
-      bpointArray[i].calcMouse();
-      bpointArray[i].displayBpoint();
+  if (!permissiongiven) {
+    background(240)
+    textFont('ubuntu')
+    textSize(width / 45)
+    text('Click para activar micrófono e iniciar (🎤)', width/3, height/2)
+    textSize(width / 25)
+    text('Cómo ver con los ojos cerrados', width/4, height/2 - 30)
+  } else {
+    background(240)
+    if (drawControls) {
+      for (let i = 0; i < bpointArray.length; i++) { //control Bpoints and handles
+        bpointArray[i].calcMouse();
+        bpointArray[i].displayBpoint();
+      }
     }
-  }
-  drawBezier()
-  drawAttractor()
-  if (interpolating) {
-    interpolatebpointArray(savedknots, savedknots1)
+    drawBezier()
+    drawAttractor()
+    if (interpolating) {
+      interpolatebpointArray(savedknots, savedknots1)
+    }
   }
 }
 
@@ -374,6 +391,9 @@ function keyPressed() {
   if (keyCode === 73) { // i
     interpolating = !interpolating // allow interpolation
   }
+  if (keyCode === 87) { // w
+    whistling = !whistling
+  }
 }
 
 function Bpointpos(index, basestatus, posx, posy, h1posx, h1posy, h2posx, h2posy) { // simplified Bpoints for saving in json
@@ -403,6 +423,10 @@ function mousePressed() { //Points activate with a click before being able to dr
     } else if (pointClickable(bpointArray[i].h2location, bpointArray[i].hsize)) {
       activeBpoint = bpointArray[i].h2location
     }
+  }
+  if (!permissiongiven) {
+    userStartAudio()
+    permissiongiven = true
   }
 }
 
