@@ -12,12 +12,14 @@ let jsonCount = 0
 let pageCenter // offset for centering
 
 // let knotspaceX // Slider for position in whislte range
+let knotspace = [] // Array which contains all saved JSONs
 let vel = .0001 // default initial velocity for interpolating to looseknot
+let looseknot = false // does the knot return to loose all the time?
 let permissiongiven = false
 let whistling = false // Is whistling detected?
 let whistlingArray = [] // An array to smooth out whistling signals
 
-// let tempBezier // tempBezier for comparison, the tempBezier is drawn with another draw function
+// let tempBezier // tempBezier for comparison, the tempBezier is drawn with a ctx draw function
 // let canvas
 // let ctx
 
@@ -27,8 +29,9 @@ let centroids = [] // Centroid buffer
 let averagingCentroids = true // smoothing Centroid by averaging with buffer
 
 function preload() {
-  savedknots = loadJSON("data/knotJSON2.json")
-  savedknots1 = loadJSON("data/knotJSON3.json")
+  for (let i = 0; i < 3; i++) { // initialize all available knots
+    knotspace.push(loadJSON("data/knotJSON" + i + ".json"))
+  }
   loosejson = loadJSON("data/loosejson.json")
 }
 
@@ -109,9 +112,9 @@ function draw() {
 
       centroids.push(spectralCentroid) //push Centroid to average it with previous
       centroids.shift()
-      interpolatebpointArray(savedknots, savedknots1)
+      interpolatebpointArray(knotspace[0], knotspace[1])
       whistling = false // reset whistling
-    } else {
+    } else if (looseknot) {
       interpolatetoLooseKnot(loosejson)
     }
     drawKeywords()
@@ -267,7 +270,7 @@ function updatebpointArray(json) {
   }
 }
 
-function drawKeywords(){
+function drawKeywords() {
 
 
 }
@@ -365,9 +368,9 @@ function interpolatebpointArray(json1, json2) { //add the possibility to undulat
   let ksX
   let averageCentroid = centroids.reduce((a, b) => a + b, 0) / centroids.length // averaging array contents
   if (averagingCentroids) {
-    ksX = map(averageCentroid, 575, 1900, 0, 1, true) // avg
+    ksX = map(averageCentroid, 575, 1700, 0, 1, true) // avg
   } else {
-    ksX = map(spectralCentroid, 575, 1900, 0, 1, true) // raw
+    ksX = map(spectralCentroid, 575, 1700, 0, 1, true) // raw
   }
 
   let locorigin = createVector()
@@ -473,14 +476,14 @@ function keyPressed() {
     print("saved json")
   }
   if (keyCode === 84) { // t
-    updatebpointArray(savedknots1) // change location for dots to savedknots json
+    updatebpointArray(knotspace[0]) // immediately change location for dots to specified knot
   }
   if (keyCode === 48) { // normal 0
     averagingCentroids = !averagingCentroids // allow interpolation
   }
-  // if (keyCode === 87) { // w
-  //   whistling = !whistling
-  // }
+  if (keyCode === 76) { // l
+    looseknot = !looseknot // does the knot return to loose?
+  }
 }
 
 function Bpointpos(index, basestatus, posx, posy, h1posx, h1posy, h2posx, h2posy) { // simplified Bpoints for saving in json
