@@ -17,7 +17,10 @@ let vel = .0001 // default initial velocity for interpolating to looseknot
 let looseknot = false // does the knot return to loose all the time?
 let permissiongiven = false
 let whistling = false // Is whistling detected?
-let whistlingArray = [] // An array to smooth out whistling signals
+let whistlingArray = [] // A buffer array to smooth out whistling signals
+const minHz = 575 // defined whistling range in Hz
+const maxHz = 2000
+let currCidBuffer = []
 
 // let tempBezier // tempBezier for comparison, the tempBezier is drawn with a ctx draw function
 // let canvas
@@ -25,7 +28,7 @@ let whistlingArray = [] // An array to smooth out whistling signals
 
 let spectrum // fft analyze product
 let spectralCentroid // centroid in Hz
-let centroids = [] // Centroid buffer
+let centroids = [] // A centroid buffer
 let averagingCentroids = true // smoothing Centroid by averaging with buffer
 
 function preload() {
@@ -71,6 +74,9 @@ function setup() {
   for (let i = 0; i < 4; i++) { // making a 4 frame buffer for centroids
     centroids.push(0)
   }
+  for (let i = 0; i < 2; i++) { // making a 1 frame buffer for centroids
+    currCidBuffer.push(0)
+  }
 }
 
 function draw() {
@@ -112,7 +118,8 @@ function draw() {
 
       centroids.push(spectralCentroid) //push Centroid to average it with previous
       centroids.shift()
-      interpolatebpointArray(knotspace[0], knotspace[1])
+      interpolatebpointArray(knotspace)
+      // interpolatebpointArray(knotspace[0], knotspace[1])
       whistling = false // reset whistling
     } else if (looseknot) {
       interpolatetoLooseKnot(loosejson)
@@ -363,24 +370,50 @@ function compensateHandle(h1isfirst) { // reducing the handle length to compensa
   }
 }
 
-function interpolatebpointArray(json1, json2) { //add the possibility to undulate in the static points
+function interpolatebpointArray(jsonArray) { //add the possibility to undulate in the static points
   //let ksX = map(knotspaceX.value(), 0, 100, 0, 1) // this is for the slider
-  let ksX
+  let ks // defines the lerp factor between active jsons
   let averageCentroid = centroids.reduce((a, b) => a + b, 0) / centroids.length // averaging array contents
-  if (averagingCentroids) {
-    ksX = map(averageCentroid, 575, 1700, 0, 1, true) // avg
-  } else {
-    ksX = map(spectralCentroid, 575, 1700, 0, 1, true) // raw
-  }
-
+  // if (averagingCentroids) {
+  //ks = map(averageCentroid, minHz, maxHz, 0, 1, true) // avg
+  // } else {
+  //   ks = map(spectralCentroid, minHz, maxHz, 0, 1, true) // raw
+  // }
   let locorigin = createVector()
   let h1origin = createVector()
   let h2origin = createVector()
   let loctarget = createVector()
   let h1target = createVector()
   let h2target = createVector()
+  let json1
+  let json2
 
-  if (bpointArray.length == Object.keys(json1).length) {
+  currCidBuffer.push(new currCBufferholder(averageCentroid, jsonArray))
+  currCidBuffer.shift()
+
+  if (spectralCentroid <= minHz || averageCentroid <= minHz) { // defining jsons for out of range centroids
+    json1 = jsonArray[0]
+    json2 = jsonArray[1]
+    ks = 0
+  } else if (spectralCentroid >= maxHz || averageCentroid >= maxHz) { // defining jsons for out of range centroids
+    json1 = jsonArray[jsonArray.length - 2]
+    json2 = jsonArray[jsonArray.length - 1]
+    ks = 1
+  } else if (currC(averageCentroid, jsonArray, 0) == undefined) { // If currC is desynchronyzed and spews undefined, take data from CurrCidBuffer
+    json1 = jsonArray[currCidBuffer[0].id]
+    json2 = jsonArray[currCidBuffer[0].id + 1]
+    ks = map(averageCentroid, currCidBuffer[0].lower, currCidBuffer[0].upper, 0, 1, true)
+    print(jsonArray[currCidBuffer[0].id], "centroid undefined", "l:"+ currCidBuffer[0].lower, "u:"+currCidBuffer[0].upper, spectralCentroid, averageCentroid)
+  } else {
+    json1 = jsonArray[currC(averageCentroid, jsonArray, 0)]
+    json2 = jsonArray[currC(averageCentroid, jsonArray, 0) + 1]
+
+    ks = map(averageCentroid, currC(averageCentroid, jsonArray, 1),
+      currC(averageCentroid, jsonArray, 2), 0, 1, true)
+    print(currC(averageCentroid, jsonArray, 0))
+  }
+
+  if (bpointArray.length == Object.keys(jsonArray[0]).length) {
     for (i = 0; i < bpointArray.length; i++) {
       locorigin.x = json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
       locorigin.y = json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
@@ -396,13 +429,59 @@ function interpolatebpointArray(json1, json2) { //add the possibility to undulat
       h2target.x = json2[i].h2x + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
       h2target.y = json2[i].h2y + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
 
-      bpointArray[i].location = p5.Vector.lerp(locorigin, loctarget, ksX)
-      bpointArray[i].h1location = p5.Vector.lerp(h1origin, h1target, ksX)
-      bpointArray[i].h2location = p5.Vector.lerp(h2origin, h2target, ksX)
+      bpointArray[i].location = p5.Vector.lerp(locorigin, loctarget, ks)
+      bpointArray[i].h1location = p5.Vector.lerp(h1origin, h1target, ks)
+      bpointArray[i].h2location = p5.Vector.lerp(h2origin, h2target, ks)
     }
   } else { // consoleprint the number of bpoints required
-    print("Saved knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(json1).length)
+    print("Saved knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(jsonArray[0]).length)
   }
+}
+
+function currCBufferholder(centroid, jsonArray) {
+  this.id = currC(centroid, jsonArray, 0)
+  this.lower = currC(centroid, jsonArray, 1)
+  this.upper = currC(centroid, jsonArray, 2)
+}
+
+function currC(centroid, jsonArray, returnmode) { // current compartment, returns currC id or currC lowerrange or currC upperrange
+  const kcAmm = knotspace.length - 1 // |  |  | -> 3 knots means only 2 compartments
+  const range = maxHz - minHz // range of whistling
+  const kcSize = range / (knotspace.length - 1) // knot compartment size
+  let currentkCmin
+  let currentkCmax
+
+  if (returnmode == 0) {
+    for (i = 0; i < kcAmm; i++) { // return i if centroid is in between min&maxHz values for compartment[i]
+      currentkCmin = minHz + (kcSize * i)
+      currentkCmax = minHz + (kcSize * (i + 1))
+      if (isBetween(centroid, currentkCmin + 1, currentkCmax, true)) { // Adding +1 so that include range doesn't overlap w/ previous
+        return i
+      }
+    }
+  } else if (returnmode == 1) {
+    for (i = 0; i < kcAmm; i++) { // return currentkCmin
+      currentkCmin = minHz + (kcSize * i)
+      currentkCmax = minHz + (kcSize * (i + 1))
+      if (isBetween(centroid, currentkCmin + 1, currentkCmax, true)) {
+        return currentkCmin
+      }
+    }
+  } else if (returnmode == 2) {
+    for (i = 0; i < kcAmm; i++) { // return currentkCmax
+      currentkCmin = minHz + (kcSize * i)
+      currentkCmax = minHz + (kcSize * (i + 1))
+      if (isBetween(centroid, currentkCmin + 1, currentkCmax, true)) {
+        return currentkCmax
+      }
+    }
+  }
+}
+
+function isBetween(num, rangelower, rangeupper, inclusive) { // is a number between these two?
+  let min = Math.min(rangelower, rangeupper)
+  let max = Math.max(rangelower, rangeupper)
+  return inclusive ? num >= min && num <= max : num > min && num < max
 }
 
 function interpolatetoLooseKnot(json) { // advance every frame
@@ -479,7 +558,7 @@ function keyPressed() {
     updatebpointArray(knotspace[0]) // immediately change location for dots to specified knot
   }
   if (keyCode === 48) { // normal 0
-    averagingCentroids = !averagingCentroids // allow interpolation
+    averagingCentroids = !averagingCentroids // avg or raw centroid?
   }
   if (keyCode === 76) { // l
     looseknot = !looseknot // does the knot return to loose?
