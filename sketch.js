@@ -12,9 +12,10 @@ let jsonCount = 0
 let pageCenter // offset for centering
 
 // let knotspaceX // Slider for position in whislte range
-let interpolating = false // Are we interpolating rn?
+let vel = .0001 // default initial velocity for interpolating to looseknot
 let permissiongiven = false
 let whistling = false // Is whistling detected?
+let whistlingArray = [] // An array to smooth out whistling signals
 
 // let tempBezier // tempBezier for comparison, the tempBezier is drawn with another draw function
 // let canvas
@@ -26,6 +27,7 @@ let spectralCentroid // centroid in Hz
 function preload() {
   savedknots = loadJSON("data/knotJSON2.json")
   savedknots1 = loadJSON("data/knotJSON3.json")
+  loosejson = loadJSON("data/loosejson.json")
 }
 
 function setup() {
@@ -57,6 +59,10 @@ function setup() {
   fft = new p5.FFT()
   sound.connect(fft)
   sound.amp(.05)
+
+  for (let i = 0; i < 8; i++) { // 25 frames of non whistling won't stop whistlingswitch
+    whistlingArray.push(0)
+  }
 }
 
 function draw() {
@@ -81,19 +87,34 @@ function draw() {
     }
     drawBezier()
     drawAttractor()
-    if (interpolating) {
-      interpolatebpointArray(savedknots, savedknots1)
+
+    for (let w of whistlingArray) { // Checking if there's any whistling in the buffer
+      if (w > 0) {
+        whistling = true
+      }
     }
+    whistlingArray.push(0) // cleaning Buffer
+    whistlingArray.shift()
+    if (whistling) {
+      spectrum = fft.analyze()
+      spectralCentroid = fft.getCentroid()
+      text(round(spectralCentroid) + ' Hz', 10, 40)
+      fill(0, 0, 255)
+      ellipse(60, 100, 50, 50)
+      interpolatebpointArray(savedknots, savedknots1)
+    } else {
+      interpolatetoLooseKnot(loosejson)
+    }
+    whistling = false
   }
 }
 
 function analyzeSound() {
-  spectrum = fft.analyze()
-  spectralCentroid = fft.getCentroid()
-  text(round(spectralCentroid)+' Hz', 10, 40)
-  let position = map(spectralCentroid, 500, 2000, 0, windowHeight)
-  fill(200, 0, 0)
-  //ellipse(400, position, 200, 200)
+  // let position = map(spectralCentroid, 500, 2000, 0, windowHeight)
+  // ellipse(200, position, 100, 100)
+
+  whistlingArray.push(1) // adds 1 at the end
+  whistlingArray.shift() // Removes first element and shifts
 }
 
 function Bpoint(basestatus, pos, h1pos, h2pos, index) {
@@ -330,7 +351,7 @@ function compensateHandle(h1isfirst) { // reducing the handle length to compensa
 
 function interpolatebpointArray(json1, json2) { //add the possibility to undulate in the static points
   //let ksX = map(knotspaceX.value(), 0, 100, 0, 1) // this is for the slider
-  let ksX = map(spectralCentroid, 575,1700,0,1, true)
+  let ksX = map(spectralCentroid, 575, 1900, 0, 1, true) // true whistling is between 500&3000
 
   let locorigin = createVector()
   let h1origin = createVector()
@@ -360,8 +381,41 @@ function interpolatebpointArray(json1, json2) { //add the possibility to undulat
       bpointArray[i].h2location = p5.Vector.lerp(h2origin, h2target, ksX)
     }
   } else { // consoleprint the number of bpoints required
-    print("add Bpoints:" + bpointArray.length + "/" + Object.keys(json1).length)
+    print("Saved knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(json1).length)
   }
+}
+
+function interpolatetoLooseKnot(json) { // advance every frame
+  let loctarget = createVector()
+  let h1target = createVector()
+  let h2target = createVector()
+
+  if (bpointArray.length == Object.keys(loosejson).length) {
+    for (i = 0; i < bpointArray.length; i++) {
+      loctarget.x = json[i].lx + ((windowWidth / 2) - json[i].cx) + json[i].offx
+      loctarget.y = json[i].ly + ((windowHeight / 2) - json[i].cy) + json[i].offy
+      h1target.x = json[i].h1x + ((windowWidth / 2) - json[i].cx) + json[i].offx
+      h1target.y = json[i].h1y + ((windowHeight / 2) - json[i].cy) + json[i].offy
+      h2target.x = json[i].h2x + ((windowWidth / 2) - json[i].cx) + json[i].offx
+      h2target.y = json[i].h2y + ((windowHeight / 2) - json[i].cy) + json[i].offy
+
+      bpointArray[i].location = p5.Vector.lerp(bpointArray[i].location, loctarget, vel)
+      bpointArray[i].h1location = p5.Vector.lerp(bpointArray[i].h1location, h1target, vel)
+      bpointArray[i].h2location = p5.Vector.lerp(bpointArray[i].h2location, h2target, vel)
+    }
+    vel *= 1.1 // accelerate vel exponentially
+    if (near(bpointArray[5].location.y,
+        json[5].ly + ((windowHeight / 2) - json[5].cy) + json[5].offy,
+        .05)) { // if near to looseknot by .05, reset vel
+      vel = .0001
+    }
+    print(vel)
+  } else { // consoleprint the number of bpoints required
+    print("Loose knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(json).length)
+  }
+}
+function near(num1, num2, factor) {
+  return (num1 > (num2 - factor) && num1 < (num2 + factor))
 }
 
 function deleteBpoint() {
@@ -404,9 +458,9 @@ function keyPressed() {
   if (keyCode === 84) { // t
     updatebpointArray(savedknots1) // change location for dots to savedknots json
   }
-  if (keyCode === 73) { // i
-    interpolating = !interpolating // allow interpolation
-  }
+  // if (keyCode === 73) { // i
+  //   interpolating = !interpolating // allow interpolation
+  // }
   if (keyCode === 87) { // w
     whistling = !whistling
   }
