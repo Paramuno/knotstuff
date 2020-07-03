@@ -14,11 +14,12 @@
       font-family: 'Ubuntu', sans-serif;
     }
   </style>
+  <script src="libraries/whistledetect/whistle.build.js"></script>
   <script src="libraries/p5.js"></script>
   <script src="libraries/p5.dom.js"></script>
   <script src="libraries/p5.sound.js"></script>
   <script src="libraries/bezier.js"></script>
-  <script src="libraries/whistledetect/whistle.build.js"></script>
+
   <script src="sketch.js"></script>
   </div>
 </head>
@@ -29,7 +30,7 @@
         alert("Agranda tu navegador y refresca para ver toda la interfaz - Please resize your browser and refresh to see the whole interface");
       }
     }
-    whistlerr.setConfig({sampleThreshold: 8})
+    whistlerr.setConfig({sampleThreshold: 2})
     // whistlerr.detect(function() {
     //   whistling = true
     // })

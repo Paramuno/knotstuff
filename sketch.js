@@ -11,9 +11,8 @@ let finalBeziers = [] // array of copied bpoint subobjects for saving
 let jsonCount = 0
 let pageCenter // offset for centering
 
-let knotspaceX // Current position in whislte range
+// let knotspaceX // Slider for position in whislte range
 let interpolating = false // Are we interpolating rn?
-let microphonePermission
 let permissiongiven = false
 let whistling = false // Is whistling detected?
 
@@ -21,7 +20,8 @@ let whistling = false // Is whistling detected?
 // let canvas
 // let ctx
 
-
+let spectrum // fft analyze product
+let spectralCentroid // centroid in Hz
 
 function preload() {
   savedknots = loadJSON("data/knotJSON2.json")
@@ -46,24 +46,31 @@ function setup() {
       baseArray.push(bpointArray[i])
     }
   }
-  knotspaceX = createSlider(0, 100, 0)
-  knotspaceX.position(150, 5)
-  // microphonePermission = createButton('Click para activar micrófono')
-  // microphonePermission.position(cw, ch)
-  // microphonePermission.id('button')
-  // microphonePermission.mousePressed(() => permissiongiven = true)
+
+  // knotspaceX = createSlider(0, 100, 0)
+  // knotspaceX.position(150, 5)
   // tempBezier = new Bezier(100,25 , 10,90 , 110,100 , 150,195) //Initializing tempBezier
   print("Knotsize: 24 Bpoints")
+
+  sound = new p5.AudioIn()
+  sound.start()
+  fft = new p5.FFT()
+  sound.connect(fft)
+  sound.amp(.05)
 }
 
 function draw() {
-  if (!permissiongiven) {
+  if (getAudioContext().state !== 'running') { // If audio context is running
     background(240)
+
     textFont('ubuntu')
-    textSize(width / 45)
-    text('Click para activar micrófono e iniciar (🎤)', width/3, height/2)
+    textSize(width / 50)
+    fill(0)
+    text('🎤 Click para activar micrófono, silba para navegar', width * .25, height / 2)
+
     textSize(width / 25)
-    text('Cómo ver con los ojos cerrados', width/4, height/2 - 30)
+    fill(175)
+    text('Cómo ver con los ojos cerrados', width * .2, height * .45)
   } else {
     background(240)
     if (drawControls) {
@@ -78,6 +85,15 @@ function draw() {
       interpolatebpointArray(savedknots, savedknots1)
     }
   }
+}
+
+function analyzeSound() {
+  spectrum = fft.analyze()
+  spectralCentroid = fft.getCentroid()
+  text(round(spectralCentroid)+' Hz', 10, 40)
+  let position = map(spectralCentroid, 500, 2000, 0, windowHeight)
+  fill(200, 0, 0)
+  //ellipse(400, position, 200, 200)
 }
 
 function Bpoint(basestatus, pos, h1pos, h2pos, index) {
@@ -313,7 +329,8 @@ function compensateHandle(h1isfirst) { // reducing the handle length to compensa
 }
 
 function interpolatebpointArray(json1, json2) { //add the possibility to undulate in the static points
-  let ksX = map(knotspaceX.value(), 0, 100, 0, 1)
+  //let ksX = map(knotspaceX.value(), 0, 100, 0, 1) // this is for the slider
+  let ksX = map(spectralCentroid, 575,1700,0,1, true)
 
   let locorigin = createVector()
   let h1origin = createVector()
@@ -346,7 +363,6 @@ function interpolatebpointArray(json1, json2) { //add the possibility to undulat
     print("add Bpoints:" + bpointArray.length + "/" + Object.keys(json1).length)
   }
 }
-
 
 function deleteBpoint() {
   bpointArray.splice(activeBezier.index, 1) // in position index, delete 1 element
@@ -425,8 +441,9 @@ function mousePressed() { //Points activate with a click before being able to dr
     }
   }
   if (!permissiongiven) {
-    userStartAudio()
-    permissiongiven = true
+    permissiongiven = true // variable so that this only is defined once
+    userStartAudio() // p5 sound is initialized
+    whistlerr.detect(() => analyzeSound()) // Whistlerr needs to recieve a function created right here
   }
 }
 
