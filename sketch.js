@@ -23,6 +23,8 @@ let whistlingArray = [] // An array to smooth out whistling signals
 
 let spectrum // fft analyze product
 let spectralCentroid // centroid in Hz
+let centroids = [] // Centroid buffer
+let averagingCentroids = true // smoothing Centroid by averaging with buffer
 
 function preload() {
   savedknots = loadJSON("data/knotJSON2.json")
@@ -59,9 +61,12 @@ function setup() {
   fft = new p5.FFT()
   sound.connect(fft)
   sound.amp(.05)
-
+  fft.smooth()
   for (let i = 0; i < 8; i++) { // 25 frames of non whistling won't stop whistlingswitch
     whistlingArray.push(0)
+  }
+  for (let i = 0; i < 4; i++) { // making a 4 frame buffer for centroids
+    centroids.push(0)
   }
 }
 
@@ -101,18 +106,21 @@ function draw() {
       text(round(spectralCentroid) + ' Hz', 10, 40)
       fill(0, 0, 255)
       ellipse(60, 100, 50, 50)
+
+      centroids.push(spectralCentroid) //push Centroid to average it with previous
+      centroids.shift()
       interpolatebpointArray(savedknots, savedknots1)
+      whistling = false // reset whistling
     } else {
       interpolatetoLooseKnot(loosejson)
     }
-    whistling = false
+    drawKeywords()
   }
 }
 
-function analyzeSound() {
+function analyzeSound() { // Activates whistling switch, function executed whenever whistling is detected by library
   // let position = map(spectralCentroid, 500, 2000, 0, windowHeight)
   // ellipse(200, position, 100, 100)
-
   whistlingArray.push(1) // adds 1 at the end
   whistlingArray.shift() // Removes first element and shifts
 }
@@ -232,9 +240,7 @@ function drawBezier() {
     bpointArray[0].h1location.x, bpointArray[0].h1location.y,
     bpointArray[0].location.x, bpointArray[0].location.y)
   endShape();
-
-
-  // drawCurve(tempBezier) //other drawcurve function
+  // drawCurve(tempBezier) // drawcurve function that uses ctxCanvas instead
 }
 
 function updatebpointArray(json) {
@@ -259,6 +265,11 @@ function updatebpointArray(json) {
   } else { // consoleprint the number of bpoints required
     print("add Bpoints:" + bpointArray.length + "/" + Object.keys(json).length)
   }
+}
+
+function drawKeywords(){
+
+
 }
 
 function drawAttractor() { // Drawing attractors between base bpoints
@@ -300,7 +311,7 @@ function drawAttractor() { // Drawing attractors between base bpoints
 //   }
 //   ctx.stroke();
 //   ctx.closePath();
-// } // other drawcurve function
+// }
 
 function createBpoint() {
   if ((activeBezier && prevactiveBezier != undefined)) {
@@ -351,7 +362,13 @@ function compensateHandle(h1isfirst) { // reducing the handle length to compensa
 
 function interpolatebpointArray(json1, json2) { //add the possibility to undulate in the static points
   //let ksX = map(knotspaceX.value(), 0, 100, 0, 1) // this is for the slider
-  let ksX = map(spectralCentroid, 575, 1900, 0, 1, true) // true whistling is between 500&3000
+  let ksX
+  let averageCentroid = centroids.reduce((a, b) => a + b, 0) / centroids.length // averaging array contents
+  if (averagingCentroids) {
+    ksX = map(averageCentroid, 575, 1900, 0, 1, true) // avg
+  } else {
+    ksX = map(spectralCentroid, 575, 1900, 0, 1, true) // raw
+  }
 
   let locorigin = createVector()
   let h1origin = createVector()
@@ -409,11 +426,11 @@ function interpolatetoLooseKnot(json) { // advance every frame
         .05)) { // if near to looseknot by .05, reset vel
       vel = .0001
     }
-    print(vel)
   } else { // consoleprint the number of bpoints required
     print("Loose knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(json).length)
   }
 }
+
 function near(num1, num2, factor) {
   return (num1 > (num2 - factor) && num1 < (num2 + factor))
 }
@@ -458,12 +475,12 @@ function keyPressed() {
   if (keyCode === 84) { // t
     updatebpointArray(savedknots1) // change location for dots to savedknots json
   }
-  // if (keyCode === 73) { // i
-  //   interpolating = !interpolating // allow interpolation
-  // }
-  if (keyCode === 87) { // w
-    whistling = !whistling
+  if (keyCode === 48) { // normal 0
+    averagingCentroids = !averagingCentroids // allow interpolation
   }
+  // if (keyCode === 87) { // w
+  //   whistling = !whistling
+  // }
 }
 
 function Bpointpos(index, basestatus, posx, posy, h1posx, h1posy, h2posx, h2posy) { // simplified Bpoints for saving in json
@@ -481,7 +498,7 @@ function Bpointpos(index, basestatus, posx, posy, h1posx, h1posy, h2posx, h2posy
   this.h2y = h2posy
 }
 
-function mousePressed() { //Points activate with a click before being able to drag them
+function mousePressed() { //Activate audio, Points activate with a click before being able to drag them
   for (let i = 0; i < bpointArray.length; i++) {
     if (pointClickable(bpointArray[i].location, bpointArray[i].bpointsize)) {
       activeBpoint = bpointArray[i].location
