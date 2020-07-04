@@ -20,7 +20,7 @@ let whistling = false // Is whistling detected?
 let whistlingArray = [] // A buffer array to smooth out whistling signals
 const minHz = 550 // defined whistling range in Hz
 const maxHz = 2000
-let currCidBuffer = []
+let currCidBuffer = [] // centroid Buffer (may be unnecessary now that currC is synchronized)
 
 // let tempBezier // tempBezier for comparison, the tempBezier is drawn with a ctx draw function
 // let canvas
@@ -31,10 +31,11 @@ let spectralCentroid // centroid in Hz
 let centroids = [] // A centroid buffer
 let averagingCentroids = true // smoothing Centroid by averaging with buffer
 
-let chooseBuffer
+let chooseBuffer // A buffer to save the last chosen word and display it
+const knotsNum = 4 // Number of available knot JSONs
 
 function preload() {
-  for (let i = 0; i < 4; i++) { // initialize all available knots
+  for (let i = 0; i < knotsNum; i++) { // initialize all available knots
     knotspace.push(loadJSON("data/knotJSON" + i + ".json"))
   }
   loosejson = loadJSON("data/loosejson.json")
@@ -118,12 +119,12 @@ function draw() {
       spectralCentroid = fft.getCentroid()
 
       fill(200)
-      text(round(spectralCentroid) + ' Hz', width/2, 100)
-      textSize(width/30)
+      text(round(spectralCentroid) + ' Hz', width / 2, 100)
+      textSize(width / 30)
       centroids.push(spectralCentroid) //push Centroid to average it with previous
       centroids.shift()
       interpolatebpointArray(knotspace)
-      drawKeywords(true, floor(random(6))) // drawKeywords(whistling?,specific id)
+      drawKeywords(true, chooseKeywords()) // drawKeywords(whistling?)
       whistling = false // reset whistling
     } else if (looseknot) {
       interpolatetoLooseKnot(loosejson) // interpolate until the knot is loose
@@ -281,22 +282,40 @@ function updatebpointArray(json) {
   }
 }
 
+function chooseKeywords() {
+  let choice
+  if (currC(spectralCentroid, knotspace, 0) != undefined) { //if currC is defined, choose a random between 0 and the length of currC keyword array
+    choice = floor(random(keyWords[currC(spectralCentroid, knotspace, 0)].s.length)) // choose a random id between the available ids in the current Compartment keyword array
+    //print(keyWords[currC(spectralCentroid, knotspace, 0)].s.length,choice)
+  } else if  (spectralCentroid <= minHz) {
+    choice = floor(random(keyWords[0].s.length))
+    print("outsiderange - low")
+  } else if (spectralCentroid >= maxHz) {
+    choice = floor(random(keyWords[knotsNum-2].s.length)) // to get the desired length of keywordsJSON I link it to knots, 4 knots, 3 spaces: 0,1,2, last one is always -2 of knotnum
+    print("outsiderange - high")
+  }
+  return choice
+}
+
 function drawKeywords(arewewhistling, choose) {
   // Choose randomly between set depending on currComparment and display them
   // Display also all texts where that word is found, let the user choose one
+  if (choose != undefined){ // safety feature
   chooseBuffer = choose
-  if (currCidBuffer[currCidBuffer.length - 1].id != undefined) {
+}
+  fill(50)
+  noStroke()
+  textAlign(CENTER)
+  if (currC(spectralCentroid, knotspace, 0) != undefined) { //if currC is defined, draw chosen keyword, else draw the buffer keyword
     if (arewewhistling) {
-      fill(50)
-      noStroke()
-      textAlign(CENTER)
-      text(keyWords[currCidBuffer[currCidBuffer.length - 1].id].s[choose], width / 2, height * .2);
+      text(keyWords[currC(spectralCentroid, knotspace, 0)].s[choose], width / 2, height * .2)
     } else {
-      fill(50);
-      noStroke()
-      textAlign(CENTER)
-      text(keyWords[currCidBuffer[currCidBuffer.length - 1].id].s[chooseBuffer], width / 2, height * .2);
+      text(keyWords[currC(spectralCentroid, knotspace, 0)].s[chooseBuffer], width / 2, height * .2)
     }
+  } else if (spectralCentroid <= minHz) {
+    text(keyWords[0].s[chooseBuffer], width / 2, height * .2)
+  } else if (spectralCentroid >= maxHz) {
+    text(keyWords[knotsNum-2].s[chooseBuffer], width / 2, height * .2)
   }
 }
 
@@ -392,7 +411,7 @@ function interpolatebpointArray(jsonArray) { //add the possibility to undulate i
     json2 = jsonArray[currCidBuffer[0].id + 1]
     ks = map(averageCentroid, currCidBuffer[0].lower, currCidBuffer[0].upper, 0, 1, true)
     print(jsonArray[currCidBuffer[0].id], "centroid undefined", "l:" + currCidBuffer[0].lower,
-    "u:" + currCidBuffer[0].upper, "raw:"+spectralCentroid,"avg"+ averageCentroid)
+      "u:" + currCidBuffer[0].upper, "raw:" + spectralCentroid, "avg" + averageCentroid)
   } else {
     json1 = jsonArray[currC(averageCentroid, jsonArray, 0)] // define jsons as jsonArray with id currCompartment
     json2 = jsonArray[currC(averageCentroid, jsonArray, 0) + 1]
@@ -400,10 +419,10 @@ function interpolatebpointArray(jsonArray) { //add the possibility to undulate i
     // ks = map(averageCentroid, currCidBuffer[currCidBuffer.length-2].lower, // maps ks to currClower and upper limits
     //   currCidBuffer[currCidBuffer.length-2].upper, 0, 1, true)
     ks = map(averageCentroid, currC(averageCentroid, jsonArray, 1), // maps ks to currClower and upper limits
-        currC(averageCentroid, jsonArray, 2), 0, 1, true)
+      currC(averageCentroid, jsonArray, 2), 0, 1, true)
     print(currC(averageCentroid, jsonArray, 0))
   }
-  if (json1 == undefined || json2 == undefined){ // Avoid crashing with a json=undefined
+  if (json1 == undefined || json2 == undefined) { // Avoid crashing with a json=undefined
     json1 = jsonArray[0]
     json2 = jsonArray[1]
     ks = .5
