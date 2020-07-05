@@ -13,7 +13,7 @@ let pageCenter // offset for centering
 
 // let knotspaceX // Slider for position in whislte range
 let knotspace = [] // Array which contains all saved JSONs
-let vel = .0001 // default initial velocity for interpolating to looseknot
+let vel = .00001 // default initial velocity for interpolating to looseknot
 let looseknot = false // does the knot return to loose all the time?
 let permissiongiven = false
 let whistling = false // Is whistling detected?
