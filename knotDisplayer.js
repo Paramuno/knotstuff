@@ -13,14 +13,14 @@ let pageCenter // offset for centering
 
 // let knotspaceX // Slider for position in whislte range
 let knotspace = [] // Array which contains all saved JSONs
-let vel = .00001 // default initial velocity for interpolating to looseknot
+let vel = .0001 // default initial velocity for interpolating to looseknot
 let looseknot = false // does the knot return to loose all the time?
 let permissiongiven = false
 let whistling = false // Is whistling detected?
 let whistlingArray = [] // A buffer array to smooth out whistling signals
-const minHz = 550 // defined whistling range in Hz
+const minHz = 575 // defined whistling range in Hz
 const maxHz = 2000
-let currCidBuffer = [] // centroid Buffer (may be unnecessary now that currC is synchronized)
+let currCidBuffer = []
 
 // let tempBezier // tempBezier for comparison, the tempBezier is drawn with a ctx draw function
 // let canvas
@@ -31,15 +31,11 @@ let spectralCentroid // centroid in Hz
 let centroids = [] // A centroid buffer
 let averagingCentroids = true // smoothing Centroid by averaging with buffer
 
-let chooseBuffer // A buffer to save the last chosen word and display it
-const knotsNum = 4 // Number of available knot JSONs
-
 function preload() {
-  for (let i = 0; i < knotsNum; i++) { // initialize all available knots
+  for (let i = 0; i < 3; i++) { // initialize all available knots
     knotspace.push(loadJSON("data/knotJSON" + i + ".json"))
   }
   loosejson = loadJSON("data/loosejson.json")
-  keyWords = loadJSON("data/WordSets.json")
 }
 
 function setup() {
@@ -72,13 +68,13 @@ function setup() {
   sound.connect(fft)
   sound.amp(.05)
   fft.smooth()
-  for (let i = 0; i < 8; i++) { // 8 frames of non whistling won't stop whistlingswitch
+  for (let i = 0; i < 8; i++) { // 25 frames of non whistling won't stop whistlingswitch
     whistlingArray.push(0)
   }
-  for (let i = 0; i < 5; i++) { // making a 5 frame buffer for centroids
+  for (let i = 0; i < 4; i++) { // making a 4 frame buffer for centroids
     centroids.push(0)
   }
-  for (let i = 0; i < 2; i++) { // making a 2 frame buffer for centroids
+  for (let i = 0; i < 2; i++) { // making a 1 frame buffer for centroids
     currCidBuffer.push(0)
   }
 }
@@ -89,13 +85,12 @@ function draw() {
 
     textFont('ubuntu')
     textSize(width / 50)
-    textAlign(CENTER)
     fill(0)
-    text('🎤 Click para activar micrófono, silba para navegar', width / 2, height / 2)
+    text('🎤 Click para activar micrófono, silba para navegar', width * .25, height / 2)
 
     textSize(width / 25)
     fill(175)
-    text('Cómo ver con los ojos cerrados', width / 2, height * .45)
+    text('Cómo ver con los ojos cerrados', width * .2, height * .45)
   } else {
     background(240)
     if (drawControls) {
@@ -117,19 +112,19 @@ function draw() {
     if (whistling) {
       spectrum = fft.analyze()
       spectralCentroid = fft.getCentroid()
+      text(round(spectralCentroid) + ' Hz', 10, 40)
+      fill(0, 0, 255)
+      ellipse(60, 100, 50, 50)
 
-      fill(200)
-      text(round(spectralCentroid) + ' Hz', width / 2, 100)
-      textSize(width / 30)
       centroids.push(spectralCentroid) //push Centroid to average it with previous
       centroids.shift()
       interpolatebpointArray(knotspace)
-      drawKeywords(true, chooseKeywords()) // drawKeywords(whistling?)
+      // interpolatebpointArray(knotspace[0], knotspace[1])
       whistling = false // reset whistling
     } else if (looseknot) {
-      interpolatetoLooseKnot(loosejson) // interpolate until the knot is loose
-      drawKeywords(false, chooseBuffer) // use the last randomly chosen word
+      interpolatetoLooseKnot(loosejson)
     }
+    drawKeywords()
   }
 }
 
@@ -282,41 +277,9 @@ function updatebpointArray(json) {
   }
 }
 
-function chooseKeywords() {
-  let choice
-  if (currC(spectralCentroid, knotspace, 0) != undefined) { //if currC is defined, choose a random between 0 and the length of currC keyword array
-    choice = floor(random(keyWords[currC(spectralCentroid, knotspace, 0)].s.length)) // choose a random id between the available ids in the current Compartment keyword array
-    //print(keyWords[currC(spectralCentroid, knotspace, 0)].s.length,choice)
-  } else if  (spectralCentroid <= minHz) {
-    choice = floor(random(keyWords[0].s.length))
-    print("outsiderange - low")
-  } else if (spectralCentroid >= maxHz) {
-    choice = floor(random(keyWords[knotsNum-2].s.length)) // to get the desired length of keywordsJSON I link it to knots, 4 knots, 3 spaces: 0,1,2, last one is always -2 of knotnum
-    print("outsiderange - high")
-  }
-  return choice
-}
-
-function drawKeywords(arewewhistling, choose) {
-  // Choose randomly between set depending on currComparment and display them
-  // Display also all texts where that word is found, let the user choose one
-  if (choose != undefined){ // safety feature
-  chooseBuffer = choose
-}
-  fill(50)
-  noStroke()
-  textAlign(CENTER)
-  if (currC(spectralCentroid, knotspace, 0) != undefined) { //if currC is defined, draw chosen keyword, else draw the buffer keyword
-    if (arewewhistling) {
-      text(keyWords[currC(spectralCentroid, knotspace, 0)].s[choose], width / 2, height * .2)
-    } else {
-      text(keyWords[currC(spectralCentroid, knotspace, 0)].s[chooseBuffer], width / 2, height * .2)
-    }
-  } else if (spectralCentroid <= minHz) {
-    text(keyWords[0].s[chooseBuffer], width / 2, height * .2)
-  } else if (spectralCentroid >= maxHz) {
-    text(keyWords[knotsNum-2].s[chooseBuffer], width / 2, height * .2)
-  }
+function drawKeywords() {
+// Choose randomly between set depending on currComparment and display them
+// Display also all texts where that word is found, let the user choose one
 }
 
 function drawAttractor() { // Drawing attractors between base bpoints
@@ -329,6 +292,36 @@ function drawAttractor() { // Drawing attractors between base bpoints
   ellipse(apos2.x, apos2.y, 20)
   pageCenter = p5.Vector.lerp(apos1, apos2, .5)
 }
+
+// function drawCurve(curve, offset) {
+//   stroke(50)
+//   strokeWeight(1)
+//   offset = offset || {
+//     x: 0,
+//     y: 0
+//   };
+//   var ox = offset.x;
+//   var oy = offset.y;
+//   ctx.beginPath();
+//   var p = curve.points,
+//     i;
+//   ctx.moveTo(p[0].x + ox, p[0].y + oy);
+//   if (p.length === 3) {
+//     ctx.quadraticCurveTo(
+//       p[1].x + ox, p[1].y + oy,
+//       p[2].x + ox, p[2].y + oy
+//     );
+//   }
+//   if (p.length === 4) {
+//     ctx.bezierCurveTo(
+//       p[1].x + ox, p[1].y + oy,
+//       p[2].x + ox, p[2].y + oy,
+//       p[3].x + ox, p[3].y + oy
+//     );
+//   }
+//   ctx.stroke();
+//   ctx.closePath();
+// }
 
 function createBpoint() {
   if ((activeBezier && prevactiveBezier != undefined)) {
@@ -381,7 +374,7 @@ function interpolatebpointArray(jsonArray) { //add the possibility to undulate i
   //let ksX = map(knotspaceX.value(), 0, 100, 0, 1) // this is for the slider
   let ks // defines the lerp factor between active jsons
   let averageCentroid = centroids.reduce((a, b) => a + b, 0) / centroids.length // averaging array contents
-  // if (averagingCentroids) { // this was for choosing between avg and raw centroids
+  // if (averagingCentroids) {
   //ks = map(averageCentroid, minHz, maxHz, 0, 1, true) // avg
   // } else {
   //   ks = map(spectralCentroid, minHz, maxHz, 0, 1, true) // raw
@@ -395,41 +388,32 @@ function interpolatebpointArray(jsonArray) { //add the possibility to undulate i
   let json1
   let json2
 
-  currCidBuffer.push(new currCholder(averageCentroid, jsonArray)) // maybe this is not necessary anymore, old: push new currC holder object into the buffer
+  currCidBuffer.push(new currCBufferholder(averageCentroid, jsonArray))
   currCidBuffer.shift()
 
-  if (spectralCentroid <= minHz + 1 || averageCentroid <= minHz + 1) { // defining jsons for out of range centroids
+  if (spectralCentroid <= minHz || averageCentroid <= minHz) { // defining jsons for out of range centroids
     json1 = jsonArray[0]
     json2 = jsonArray[1]
     ks = 0
-  } else if (spectralCentroid >= maxHz - 1 || averageCentroid >= maxHz - 1) { // defining jsons for out of range centroids
+  } else if (spectralCentroid >= maxHz || averageCentroid >= maxHz) { // defining jsons for out of range centroids
     json1 = jsonArray[jsonArray.length - 2]
     json2 = jsonArray[jsonArray.length - 1]
     ks = 1
-  } else if (currC(averageCentroid, jsonArray, 0) == undefined) { // when avgCentroid = exact compartment division it crashed, old: If currC is desynchronyzed and spews undefined, take data from CurrCidBuffer
+  } else if (currC(averageCentroid, jsonArray, 0) == undefined) { // If currC is desynchronyzed and spews undefined, take data from CurrCidBuffer
     json1 = jsonArray[currCidBuffer[0].id]
     json2 = jsonArray[currCidBuffer[0].id + 1]
     ks = map(averageCentroid, currCidBuffer[0].lower, currCidBuffer[0].upper, 0, 1, true)
-    print(jsonArray[currCidBuffer[0].id], "centroid undefined", "l:" + currCidBuffer[0].lower,
-      "u:" + currCidBuffer[0].upper, "raw:" + spectralCentroid, "avg" + averageCentroid)
+    print(jsonArray[currCidBuffer[0].id], "centroid undefined", "l:"+ currCidBuffer[0].lower, "u:"+currCidBuffer[0].upper, spectralCentroid, averageCentroid)
   } else {
-    json1 = jsonArray[currC(averageCentroid, jsonArray, 0)] // define jsons as jsonArray with id currCompartment
+    json1 = jsonArray[currC(averageCentroid, jsonArray, 0)]// define jsons as jsonArray with id currCompartment
     json2 = jsonArray[currC(averageCentroid, jsonArray, 0) + 1]
 
-    // ks = map(averageCentroid, currCidBuffer[currCidBuffer.length-2].lower, // maps ks to currClower and upper limits
-    //   currCidBuffer[currCidBuffer.length-2].upper, 0, 1, true)
     ks = map(averageCentroid, currC(averageCentroid, jsonArray, 1), // maps ks to currClower and upper limits
       currC(averageCentroid, jsonArray, 2), 0, 1, true)
     print(currC(averageCentroid, jsonArray, 0))
   }
-  if (json1 == undefined || json2 == undefined) { // Avoid crashing with a json=undefined
-    json1 = jsonArray[0]
-    json2 = jsonArray[1]
-    ks = .5
-    print("json undefined, this should've crashed")
-  }
 
-  if (bpointArray.length == Object.keys(jsonArray[0]).length) { // if bpointArray length is enough, defines origins and targets and lerps by ks
+  if (bpointArray.length == Object.keys(jsonArray[0]).length) { // defines origins and targets and lerps by ks
     for (i = 0; i < bpointArray.length; i++) {
       locorigin.x = json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
       locorigin.y = json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
@@ -454,7 +438,7 @@ function interpolatebpointArray(jsonArray) { //add the possibility to undulate i
   }
 }
 
-function currCholder(centroid, jsonArray) { // current Compartment holder to save on buffer
+function currCBufferholder(centroid, jsonArray) {
   this.id = currC(centroid, jsonArray, 0)
   this.lower = currC(centroid, jsonArray, 1)
   this.upper = currC(centroid, jsonArray, 2)
@@ -466,11 +450,12 @@ function currC(centroid, jsonArray, returnmode) { // current compartment, return
   const kcSize = range / (knotspace.length - 1) // knot compartment size
   let currentkCmin
   let currentkCmax
+
   if (returnmode == 0) {
     for (i = 0; i < kcAmm; i++) { // return i if centroid is in between min&maxHz values for compartment[i]
       currentkCmin = minHz + (kcSize * i)
       currentkCmax = minHz + (kcSize * (i + 1))
-      if (isBetween(centroid, currentkCmin, currentkCmax, true)) { // This shit was crashing it => old: Adding +1 so that include range doesn't overlap w/ previous
+      if (isBetween(centroid, currentkCmin + 1, currentkCmax, true)) { // Adding +1 so that include range doesn't overlap w/ previous
         return i
       }
     }
@@ -478,7 +463,7 @@ function currC(centroid, jsonArray, returnmode) { // current compartment, return
     for (i = 0; i < kcAmm; i++) { // return currentkCmin
       currentkCmin = minHz + (kcSize * i)
       currentkCmax = minHz + (kcSize * (i + 1))
-      if (isBetween(centroid, currentkCmin, currentkCmax, true)) {
+      if (isBetween(centroid, currentkCmin + 1, currentkCmax, true)) {
         return currentkCmin
       }
     }
@@ -486,7 +471,7 @@ function currC(centroid, jsonArray, returnmode) { // current compartment, return
     for (i = 0; i < kcAmm; i++) { // return currentkCmax
       currentkCmin = minHz + (kcSize * i)
       currentkCmax = minHz + (kcSize * (i + 1))
-      if (isBetween(centroid, currentkCmin, currentkCmax, true)) {
+      if (isBetween(centroid, currentkCmin + 1, currentkCmax, true)) {
         return currentkCmax
       }
     }
@@ -631,33 +616,3 @@ function downloadObjectAsJson(exportObj, exportName) {
   downloadAnchorNode.click();
   downloadAnchorNode.remove();
 }
-
-// function drawCurve(curve, offset) { // other drawfunction in ctx Canvas
-//   stroke(50)
-//   strokeWeight(1)
-//   offset = offset || {
-//     x: 0,
-//     y: 0
-//   };
-//   var ox = offset.x;
-//   var oy = offset.y;
-//   ctx.beginPath();
-//   var p = curve.points,
-//     i;
-//   ctx.moveTo(p[0].x + ox, p[0].y + oy);
-//   if (p.length === 3) {
-//     ctx.quadraticCurveTo(
-//       p[1].x + ox, p[1].y + oy,
-//       p[2].x + ox, p[2].y + oy
-//     );
-//   }
-//   if (p.length === 4) {
-//     ctx.bezierCurveTo(
-//       p[1].x + ox, p[1].y + oy,
-//       p[2].x + ox, p[2].y + oy,
-//       p[3].x + ox, p[3].y + oy
-//     );
-//   }
-//   ctx.stroke();
-//   ctx.closePath();
-// }
