@@ -1,12 +1,12 @@
-Think about the interface aesthetical implications /// play with the shader colors make it dark/gray and saturated
+**DONE**Think about the interface aesthetical implications /// play with the shader colors make it dark/gray and saturated
 
 Add more knots (up to 7) and distribute them in the rangelower // this is compound with the 2D knotspace
 
-Make alt control for people wout whistle // cambiar de modo icon and display it on corner // this can be done with a link to another sketch
+**CAN POSTPONE**Make alt control for people wout whistle // cambiar de modo icon and display it on corner // this can be done with a link to another sketch
 
-Think about how to add 2D support so we can better distribute the knots maybe 3,3,1 compartments so 9 total knots
+**TOMORROW**Think about how to add 2D support so we can better distribute the knots maybe 3,3,1 compartments so 9 total knots
 
-//maybe undulate knots? // no need
+**CANT IMAGINE UNDULATIONS W/ STATIC BEZIERS**//maybe undulate knots? // no need
 
 Add text search function, draw phrases where word is written and make them links to specific texts
 
