@@ -34,20 +34,47 @@ let averagingCentroids = true // smoothing Centroid by averaging with buffer
 let chooseBuffer // A buffer to save the last chosen word and display it
 const knotsNum = 4 // Number of available knot JSONs
 
+let floaters = [] // floaters img array
+let floRots = [] // array for rotations of the floaters
+let seed1 = 0 // noise seeds
+let seed2 = 1000
+
 function preload() {
   for (let i = 0; i < knotsNum; i++) { // initialize all available knots
     knotspace.push(loadJSON("data/knotJSON" + i + ".json"))
   }
   loosejson = loadJSON("data/loosejson.json")
   keyWords = loadJSON("data/WordSets.json")
+  for (let i = 0; i < 6; i++) { //initalizing 6 floater bois and pushing random rotations in a matching array
+    floaters.push(loadImage("images/floater" + i + ".png"))
+    floRots.push(random(-180, 180))
+  }
 }
 
+var gl, noctaves, c;
+
 function setup() {
-  createCanvas(windowWidth, windowHeight - 4);
+  //createCanvas(windowWidth, windowHeight - 4);
+  ///
+  createCanvas(windowWidth, windowHeight - 4)
+  texShader = createGraphics(windowWidth, windowHeight - 4, WEBGL)
+  gl = texShader.canvas.getContext('webgl')
+  gl.disable(gl.DEPTH_TEST)
+  noctaves = 5; // noise octaves def5
+  c = []
+  for (var i = 0; i < 22; i++) {
+    c[i] = random(-5, 5); // blob matrix
+  }
+  hyp = new p5.Shader(texShader._renderer, vert, frag) // Using live shader
+  texShader.shader(hyp) // loading shader into Graphics buffer
+  texShader.noStroke()
+  ///
+  angleMode(DEGREES) // for the floaters rotations
+
   getAudioContext().suspend();
   // canvas = document.getElementById("defaultCanvas0") // initializing drawcanvas
   // ctx = canvas.getContext("2d")
-  background(240);
+  //background(240);
   noStroke();
   let cw = (width / 2)
   let ch = (height / 2)
@@ -81,23 +108,42 @@ function setup() {
   for (let i = 0; i < 2; i++) { // making a 2 frame buffer for centroids
     currCidBuffer.push(0)
   }
+  amplitude = new p5.Amplitude()
+  sound.connect(amplitude)
 }
 
 function draw() {
-  if (getAudioContext().state !== 'running') { // If audio context is running
-    background(240)
 
+  if (getAudioContext().state !== 'running') { // If audio context is running
+    background(41, 36, 36)
     textFont('ubuntu')
     textSize(width / 50)
     textAlign(CENTER)
-    fill(0)
+    fill(255)
     text('🎤 Click para activar micrófono, silba para navegar', width / 2, height / 2)
-
     textSize(width / 25)
-    fill(175)
+    fill(255,175)
     text('Cómo ver con los ojos cerrados', width / 2, height * .45)
   } else {
-    background(240)
+    hyp.setUniform("iResolution", [width, height]); //pass some values to the shader
+    hyp.setUniform("iTime", millis() * .0012); // timefactor
+    hyp.setUniform('iMouse', [map(spectralCentroid,600,2200,0,width),map(amplitude.getLevel(),0,.02,0,height)]); //Mapping iMouse functions to sound Hz & amp
+    hyp.setUniform("noctaves", noctaves);
+    hyp.setUniform("c", c);
+    texShader.shader(hyp);
+    texShader.box(width, height);
+    imageMode(CORNER)
+    image(texShader, 0, 0, width, height)
+    noStroke()
+    fill(30, 240) //38,33,33,250)
+    rect(0, 0, width, height)
+
+
+    //background(240)
+    imageMode(CENTER)
+    for (let i = 0; i < floaters.length; i++) { //drawing all floaters in the array
+      drawFloaters(floaters[i], i * 100, i) //passing floaterimg noiseseed and index
+    }
     if (drawControls) {
       for (let i = 0; i < bpointArray.length; i++) { //control Bpoints and handles
         bpointArray[i].calcMouse();
@@ -120,7 +166,6 @@ function draw() {
 
       fill(200)
       text(round(spectralCentroid) + ' Hz', width / 2, 100)
-      textSize(width / 30)
       centroids.push(spectralCentroid) //push Centroid to average it with previous
       centroids.shift()
       interpolatebpointArray(knotspace)
@@ -240,9 +285,9 @@ function pointClickable(point, size) { // Is my mouse over this point?
 }
 
 function drawBezier() {
-  stroke(50);
+  stroke(201, 255, 250);
   strokeWeight(10);
-  noFill();
+  noFill()
   beginShape();
   for (let i = 0; i < bpointArray.length - 1; i++) { // Draw bezier
     bezier(bpointArray[i].location.x, bpointArray[i].location.y, //anchor1
@@ -287,23 +332,40 @@ function chooseKeywords() {
   if (currC(spectralCentroid, knotspace, 0) != undefined) { //if currC is defined, choose a random between 0 and the length of currC keyword array
     choice = floor(random(keyWords[currC(spectralCentroid, knotspace, 0)].s.length)) // choose a random id between the available ids in the current Compartment keyword array
     //print(keyWords[currC(spectralCentroid, knotspace, 0)].s.length,choice)
-  } else if  (spectralCentroid <= minHz) {
+  } else if (spectralCentroid <= minHz) {
     choice = floor(random(keyWords[0].s.length))
     print("outsiderange - low")
   } else if (spectralCentroid >= maxHz) {
-    choice = floor(random(keyWords[knotsNum-2].s.length)) // to get the desired length of keywordsJSON I link it to knots, 4 knots, 3 spaces: 0,1,2, last one is always -2 of knotnum
+    choice = floor(random(keyWords[knotsNum - 2].s.length)) // to get the desired length of keywordsJSON I link it to knots, 4 knots, 3 spaces: 0,1,2, last one is always -2 of knotnum
     print("outsiderange - high")
   }
   return choice
 }
 
+function drawFloaters(floater, seedOffset, index) { // drawing them floaters
+  push()
+  let floX = noise(seed1 + seedOffset);
+  floX = map(floX, 0, 1, -100, width + 100);//map nise to canvas size
+  let floY = noise(seed2 + seedOffset);
+  floY = map(floY, 0, 1, -100, height + 100);
+  seed1 += .00017; //move in noisespace
+  seed2 += .00017;
+  translate(floX,floY) // translate by xy noisypos
+  rotate(floRots[index]) // rotate by rotationsarray
+  floRots[index] += map(noise(seed1),0,1,-.4,.4) // adding a noisy ammount to rotationsarray
+  image(floater, 0, 0)
+  pop()
+}
+
 function drawKeywords(arewewhistling, choose) {
   // Choose randomly between set depending on currComparment and display them
   // Display also all texts where that word is found, let the user choose one
-  if (choose != undefined){ // safety feature
-  chooseBuffer = choose
-}
-  fill(50)
+  if (choose != undefined) { // safety feature
+    chooseBuffer = choose
+  }
+  textSize(width / 30)
+  //make switch for mobile
+  fill(200)
   noStroke()
   textAlign(CENTER)
   if (currC(spectralCentroid, knotspace, 0) != undefined) { //if currC is defined, draw chosen keyword, else draw the buffer keyword
@@ -315,7 +377,7 @@ function drawKeywords(arewewhistling, choose) {
   } else if (spectralCentroid <= minHz) {
     text(keyWords[0].s[chooseBuffer], width / 2, height * .2)
   } else if (spectralCentroid >= maxHz) {
-    text(keyWords[knotsNum-2].s[chooseBuffer], width / 2, height * .2)
+    text(keyWords[knotsNum - 2].s[chooseBuffer], width / 2, height * .2)
   }
 }
 
@@ -323,8 +385,8 @@ function drawAttractor() { // Drawing attractors between base bpoints
   let apos1 = p5.Vector.lerp(baseArray[0].location, baseArray[1].location, .5)
   let apos2 = p5.Vector.lerp(baseArray[2].location, baseArray[3].location, .5)
   strokeWeight(5)
-  stroke(200)
-  fill(240)
+  stroke(200, 75)
+  noFill()
   ellipse(apos1.x, apos1.y, 20)
   ellipse(apos2.x, apos2.y, 20)
   pageCenter = p5.Vector.lerp(apos1, apos2, .5)
@@ -661,3 +723,153 @@ function downloadObjectAsJson(exportObj, exportName) {
 //   ctx.stroke();
 //   ctx.closePath();
 // }
+
+// Shader by Pierre MARZIN
+var frag = `
+
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+uniform vec2 iResolution;
+uniform vec2 iMouse;
+uniform float iTime;
+uniform int noctaves;
+uniform float c[22];
+float mousefactor;
+
+float noise( in vec2 x )
+{
+	return sin(1.5*x.x)*sin(1.5*x.y);
+}
+
+const mat2 rot = mat2( 0.80,  0.6, -0.6,  0.8 );
+float fbm ( in vec2 _st) {
+    float v = 0.0;
+    float a = 0.6;
+    vec2 shift = 10.0*vec2(c[11],c[12]);
+    for (int i = 0; i < 12; ++i) {
+		if(i>=noctaves)break;
+        v += a * noise(_st);
+        _st = rot*_st* 2.0 + shift;
+        a *= 0.5;
+    }
+    return v;
+}
+
+//manipulate b,c,s
+mat4 brightnessMatrix( float brightness )
+{
+    return mat4( 1, 0, 0, 0,
+                 0, 1, 0, 0,
+                 0, 0, 1, 0,
+                 brightness, brightness, brightness, 1 );
+}
+
+mat4 contrastMatrix( float contrast )
+{
+	float t = ( 1.0 - contrast ) / 2.0;
+
+    return mat4( contrast, 0, 0, 0,
+                 0, contrast, 0, 0,
+                 0, 0, contrast, 0,
+                 t, t, t, 1 );
+
+}
+
+mat4 saturationMatrix( float saturation )
+{
+    vec3 luminance = vec3( 0.3086, 0.6094, 0.0820 );
+
+    float oneMinusSat = 1.0 - saturation;
+
+    vec3 red = vec3( luminance.x * oneMinusSat );
+    red+= vec3( saturation, 0, 0 );
+
+    vec3 green = vec3( luminance.y * oneMinusSat );
+    green += vec3( 0, saturation, 0 );
+
+    vec3 blue = vec3( luminance.z * oneMinusSat );
+    blue += vec3( 0, 0, saturation );
+
+    return mat4( red,     0,
+                 green,   0,
+                 blue,    0,
+                 0, 0, 0, 1 );
+}
+
+const float brightness = 0.15; //def.15
+const float contrast = 1.2; //def1.2
+const float saturation = 1.5; // def1.5
+
+void main() {
+		vec2 mouse=iMouse/iResolution;
+    vec2 st =(-iResolution.xy+2.0*gl_FragCoord.xy)/iResolution.y;//(gl_FragCoord.xy/iResolution.xy);//
+    vec3 color = vec3(0.);
+    vec2 q = vec2(0.);
+
+
+    q.x = fbm( st+vec2(c[0],3.*.04*iTime) ); // def.01 is angle of movement
+    q.y = fbm( st+vec2(c[2],c[3]) );
+    vec2 r = vec2(0.);
+
+//play with the values here!
+		r.x = fbm( st+ (3.0*mouse.x+0.4)*q+vec2(c[5],c[6]));
+    r.y = fbm( st+ (6.0*mouse.y+0.5)*q*sin(.01*iTime)+vec2(c[8]*.05*iTime,c[9]));
+    float f = fbm(st+c[10]*(r+length(q) ));
+    color = smoothstep(vec3(0.101961,0.19608,0.666667),vec3(0.666667,0.666667,0.98039),color); //(0.101961,0.19608,0.666667),vec3(0.666667,0.666667,0.98039)
+
+    //color = mix(color,vec3(1.856,.05*(1.0+cos(1.5+.2*iTime)),0.164706),r.y+length(q));//
+    color = mix(color,vec3(1.,.05*(1.0+cos(1.5+.2*iTime)),0.164706),r.y+length(q));//
+
+    //color = mix(color,vec3(1.5*sin(.1*iTime),0.0,cos(.13*iTime)),length(r+q))
+    color = mix(color,vec3(1.5*sin(.2*iTime),0.0,1.2*cos(.25*iTime)),length(r+q));// titilation between colors//.2+.2*(1.0+cos(0.5+.3*iTime)) //
+
+    color = mix( color, vec3(0.9,0.9,0.9), dot(r,r) ); //def .9.9.9
+		color*=(.6*f*f*f*f+.6*f*f+.6*f); // mixing of channels def (1.5*f*f*f+1.8*f*f+1.7*f); like .6.8.6
+		color+=.4*vec3(1.8+r.x,0.7+q); // brightness def color+=.4*vec3(1.8+r.x,0.7+q)
+		color=pow(color, vec3(1.5)); // contrast def.5 like .8
+
+    vec4 finalcolor = vec4(color,1.);
+    finalcolor = brightnessMatrix( brightness ) *
+        		contrastMatrix( contrast ) *
+        		saturationMatrix( saturation ) *
+        		finalcolor;
+
+    gl_FragColor = vec4(color,1.);
+}
+
+`
+var vert = `
+//standard vertex shader
+#ifdef GL_ES
+      precision highp float;
+    #endif
+		#extension GL_OES_standard_derivatives : enable
+    // attributes, in
+    attribute vec3 aPosition;
+    attribute vec3 aNormal;
+    attribute vec2 aTexCoord;
+    attribute vec4 aVertexColor;
+
+    // attributes, out
+    varying vec3 var_vertPos;
+    varying vec4 var_vertCol;
+    varying vec3 var_vertNormal;
+    varying vec2 var_vertTexCoord;
+
+    // matrices
+    uniform mat4 uModelViewMatrix;
+    uniform mat4 uProjectionMatrix;
+    uniform mat3 uNormalMatrix;
+
+    void main() {
+      gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0);
+
+      // just passing things through
+      var_vertPos      = aPosition;
+      var_vertCol      = aVertexColor;
+      var_vertNormal   = aNormal;
+      var_vertTexCoord = aTexCoord;
+    }
+`;
