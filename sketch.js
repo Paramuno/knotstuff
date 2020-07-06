@@ -113,7 +113,6 @@ function setup() {
 }
 
 function draw() {
-
   if (getAudioContext().state !== 'running') { // If audio context is running
     background(41, 36, 36)
     textFont('ubuntu')
@@ -122,24 +121,16 @@ function draw() {
     fill(255)
     text('🎤 Click para activar micrófono, silba para navegar', width / 2, height / 2)
     textSize(width / 25)
-    fill(255,175)
+    fill(255, 175)
     text('Cómo ver con los ojos cerrados', width / 2, height * .45)
   } else {
-    hyp.setUniform("iResolution", [width, height]); //pass some values to the shader
-    hyp.setUniform("iTime", millis() * .0012); // timefactor
-    hyp.setUniform('iMouse', [map(spectralCentroid,600,2200,0,width),map(amplitude.getLevel(),0,.02,0,height)]); //Mapping iMouse functions to sound Hz & amp
-    hyp.setUniform("noctaves", noctaves);
-    hyp.setUniform("c", c);
-    texShader.shader(hyp);
-    texShader.box(width, height);
-    imageMode(CORNER)
-    image(texShader, 0, 0, width, height)
-    noStroke()
-    fill(30, 240) //38,33,33,250)
-    rect(0, 0, width, height)
 
+    if (height < (width*1.4)) { // detecting mobile devices by aspect ratio
+      drawShader()
+    } else {
+      background(41, 36, 36)
+    }
 
-    //background(240)
     imageMode(CENTER)
     for (let i = 0; i < floaters.length; i++) { //drawing all floaters in the array
       drawFloaters(floaters[i], i * 100, i) //passing floaterimg noiseseed and index
@@ -176,6 +167,21 @@ function draw() {
       drawKeywords(false, chooseBuffer) // use the last randomly chosen word
     }
   }
+}
+
+function drawShader() {
+  hyp.setUniform("iResolution", [width, height]); //pass some values to the shader
+  hyp.setUniform("iTime", millis() * .0012); // timefactor
+  hyp.setUniform('iMouse', [map(spectralCentroid, 600, 2200, 0, width), map(amplitude.getLevel(), 0, .02, 0, height)]); //Mapping iMouse functions to sound Hz & amp
+  hyp.setUniform("noctaves", noctaves);
+  hyp.setUniform("c", c);
+  texShader.shader(hyp);
+  texShader.box(width, height);
+  imageMode(CORNER)
+  image(texShader, 0, 0, width, height)
+  noStroke()
+  fill(30, 240) //38,33,33,250)
+  rect(0, 0, width, height)
 }
 
 function analyzeSound() { // Activates whistling switch, function executed whenever whistling is detected by library
@@ -345,14 +351,14 @@ function chooseKeywords() {
 function drawFloaters(floater, seedOffset, index) { // drawing them floaters
   push()
   let floX = noise(seed1 + seedOffset);
-  floX = map(floX, 0, 1, -100, width + 100);//map nise to canvas size
+  floX = map(floX, 0, 1, -100, width + 100); //map nise to canvas size
   let floY = noise(seed2 + seedOffset);
   floY = map(floY, 0, 1, -100, height + 100);
   seed1 += .00017; //move in noisespace
   seed2 += .00017;
-  translate(floX,floY) // translate by xy noisypos
+  translate(floX, floY) // translate by xy noisypos
   rotate(floRots[index]) // rotate by rotationsarray
-  floRots[index] += map(noise(seed1),0,1,-.4,.4) // adding a noisy ammount to rotationsarray
+  floRots[index] += map(noise(seed1), 0, 1, -.4, .4) // adding a noisy ammount to rotationsarray
   image(floater, 0, 0)
   pop()
 }
