@@ -38,8 +38,8 @@ let floaters = [] // floaters img array
 let floRots = [] // array for rotations of the floaters
 let seed1 = 0 // noise seeds
 let seed2 = 1000
-let txRwalk=0
-let tyRwalk=0
+let txRwalk = 0
+let tyRwalk = 0
 
 function preload() {
   for (let i = 0; i < knotsNum; i++) { // initialize all available knots
@@ -53,13 +53,17 @@ function preload() {
   }
 }
 
+//Shaders variables
 var gl, noctaves, c;
+let sourceCanvas
 
 function setup() {
   //createCanvas(windowWidth, windowHeight - 4);
   ///
   createCanvas(windowWidth, windowHeight - 4)
   texShader = createGraphics(windowWidth, windowHeight - 4, WEBGL)
+  texShader1 = createGraphics(windowWidth, windowHeight - 4, WEBGL)
+  sourceCanvas = createGraphics(windowWidth, windowHeight - 4) // shader 1 needs a canvas to draw pixels from, current canvas effect would be too ugly so we make an empty one
   gl = texShader.canvas.getContext('webgl')
   gl.disable(gl.DEPTH_TEST)
   noctaves = 5; // noise octaves def5
@@ -67,9 +71,13 @@ function setup() {
   for (var i = 0; i < 22; i++) {
     c[i] = random(-5, 5); // blob matrix
   }
-  hyp = new p5.Shader(texShader._renderer, vert, frag) // Using live shader
+  hyp = new p5.Shader(texShader._renderer, vert, frag) // Using live shader (fluid colors)
   texShader.shader(hyp) // loading shader into Graphics buffer
   texShader.noStroke()
+  ///
+  hyp1 = new p5.Shader(texShader1.renderer, vert1, frag1) // Using the 2nd live shader (blurry lights)
+  texShader1.noStroke()
+  sourceCanvas.background(0)
   ///
   angleMode(DEGREES) // for the floaters rotations
 
@@ -112,7 +120,7 @@ function setup() {
   }
   amplitude = new p5.Amplitude()
   sound.connect(amplitude)
-  spectralCentroid=600 // initializing variable to pass to shader before sound is fftanalyzed
+  spectralCentroid = 600 // initializing variable to pass to shader before sound is fftanalyzed
 }
 
 function draw() {
@@ -125,16 +133,16 @@ function draw() {
     text('🎤 Click para activar micrófono, silba para navegar', width / 2, height / 2)
     textSize(width / 24)
     //textFont(acid)
-    fill(105,2,2)
-    text('Cómo ver con los ojos cerrados', (width / 2)+txRwalk, (height * .45)+tyRwalk)
+    fill(105, 2, 2)
+    text('Cómo ver con los ojos cerrados', (width / 2) + txRwalk, (height * .45) + tyRwalk)
     textSize(width / 24.2)
     fill(255, 175)
     text('Cómo ver con los ojos cerrados', (width / 2), (height * .45))
     let fac = .15
-    txRwalk+=map(random(),0,1,-fac,fac)
-    tyRwalk+=map(random(),0,1,-fac,fac)
+    txRwalk += map(random(), 0, 1, -fac, fac)
+    tyRwalk += map(random(), 0, 1, -fac, fac)
   } else {
-    if (height < (width*1.4)) { // detecting mobile devices by aspect ratio
+    if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
       drawShader()
     } else {
       background(41, 36, 36)
@@ -160,10 +168,10 @@ function draw() {
     }
     whistlingArray.push(0) // cleaning Buffer
     whistlingArray.shift()
+    drawShader1() // after checking for whistling, drawShader1
     if (whistling) {
       spectrum = fft.analyze()
       spectralCentroid = fft.getCentroid()
-
       fill(200)
       text(round(spectralCentroid) + ' Hz', width / 2, 100)
       centroids.push(spectralCentroid) //push Centroid to average it with previous
@@ -190,7 +198,32 @@ function drawShader() {
   image(texShader, 0, 0, width, height)
   noStroke()
   fill(30, 240) //38,33,33,250)
-  rect(0, 0, width, height)
+  rect(0, 0, width, height) // Creating a veil that obscures shaders
+}
+
+function drawShader1() {
+  imageMode(CORNER)
+  texShader1.shader(hyp1)
+  hyp1.setUniform('u_resolution', [width, height]) //	theShader.setUniform('u_resolution',[width/1000,height/1000])
+  hyp1.setUniform('u_time', millis() / 1000)
+  hyp1.setUniform('u_mouse', [.4, .2]) //generator position
+  hyp1.setUniform('u_mousestrength', .0135) //strength of generator
+  //hyp1.setUniform('u_mouse', [mouseX / width, mouseY / height])
+  hyp1.setUniform('tex0', sourceCanvas);
+  if (whistling) {
+    hyp1.setUniform('u_splash', 2.) // >1 is true less is false, this controls the mouse generator display
+  } else {
+    hyp1.setUniform('u_splash', .5)
+  }
+  texShader1.rect(0, 0, width, height)
+  sourceCanvas.image(texShader1, 0, 0, width, height) //Source canvas is a graphics buffer to use for background to the shader
+  // sourceCanvas.fill(floor(random(255)),floor(random(255)),floor(random(255)))
+  // sourceCanvas.noStroke()
+  // sourceCanvas.ellipse(50,50,20,20)
+  //sourceCanvas.background(0,100)
+  blendMode(SCREEN) //this was separated into 2 steps after whistling, but it was unnecesary
+  image(sourceCanvas, 0, 0)
+  blendMode(BLEND)
 }
 
 function analyzeSound() { // Activates whistling switch, function executed whenever whistling is detected by library
@@ -378,7 +411,8 @@ function drawKeywords(arewewhistling, choose) {
   if (choose != undefined) { // safety feature
     chooseBuffer = choose
   }
-  textSize(width / 30)
+  textSize(height / 30)
+  //sourceCanvas.textSize(width / 30) // Trying to add trail for text, same below
   //make switch for mobile
   fill(200)
   noStroke()
@@ -386,6 +420,8 @@ function drawKeywords(arewewhistling, choose) {
   if (currC(spectralCentroid, knotspace, 0) != undefined) { //if currC is defined, draw chosen keyword, else draw the buffer keyword
     if (arewewhistling) {
       text(keyWords[currC(spectralCentroid, knotspace, 0)].s[choose], width / 2, height * .2)
+      //sourceCanvas.fill(floor(random(255)),floor(random(255)),floor(random(255)))
+      //sourceCanvas.text(keyWords[currC(spectralCentroid, knotspace, 0)].s[choose], width / 2, height * .2)
     } else {
       text(keyWords[currC(spectralCentroid, knotspace, 0)].s[chooseBuffer], width / 2, height * .2)
     }
@@ -887,4 +923,205 @@ var vert = `
       var_vertNormal   = aNormal;
       var_vertTexCoord = aTexCoord;
     }
+`;
+
+/// Shader 2 blurring hypnagogias
+const frag1 = `
+	#ifdef GL_ES
+	precision mediump float;
+	#endif
+
+  #define PI 3.141592653589793
+  #define TAU 6.283185307179586
+
+	uniform vec2 u_resolution;
+	uniform vec2 u_mouse;
+	uniform float u_time;
+	uniform sampler2D tex0;
+  uniform float u_splash;
+  uniform float u_mousestrength;
+
+	varying vec2 vTexCoord;
+
+#define pow2(x) (x * x)
+
+const int samples = 8;
+const float sigma = float(samples) * 0.25;
+
+float gaussian(vec2 i) {
+    return 1.0 / (2.0 * PI * pow2(sigma)) * exp(-((pow2(i.x) + pow2(i.y)) / (2.0 * pow2(sigma))));
+}
+
+vec3 blur(sampler2D sp, vec2 uv, vec2 scale) {
+    vec3 col = vec3(0.0);
+    float accum = 0.0;
+    float weight;
+    vec2 offset;
+
+    for (int x = -samples / 2; x < samples / 2; ++x) {
+        for (int y = -samples / 2; y < samples / 2; ++y) {
+            offset = vec2(x, y);
+            weight = gaussian(offset);
+            col += texture2D(sp, uv + scale * offset).rgb * weight;
+            accum += weight;
+        }
+    }
+
+    return col / accum;
+}
+
+
+	float rand(vec2 c){
+		return fract(sin(dot(c.xy ,vec2(12.9898,78.233))) * 43758.5453);
+	}
+
+	//	Classic Perlin 3D Noise
+	//	by Stefan Gustavson
+	//
+	vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
+	vec4 taylorInvSqrt(vec4 r){return 1.79284291400159 - 0.85373472095314 * r;}
+	vec3 fade(vec3 t) {return t*t*t*(t*(t*6.0-15.0)+10.0);}
+
+	float cnoise(vec3 P){
+		vec3 Pi0 = floor(P); // Integer part for indexing
+		vec3 Pi1 = Pi0 + vec3(1.0); // Integer part + 1
+		Pi0 = mod(Pi0, 289.0);
+		Pi1 = mod(Pi1, 289.0);
+		vec3 Pf0 = fract(P); // Fractional part for interpolation
+		vec3 Pf1 = Pf0 - vec3(1.0); // Fractional part - 1.0
+		vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
+		vec4 iy = vec4(Pi0.yy, Pi1.yy);
+		vec4 iz0 = Pi0.zzzz;
+		vec4 iz1 = Pi1.zzzz;
+
+		vec4 ixy = permute(permute(ix) + iy);
+		vec4 ixy0 = permute(ixy + iz0);
+		vec4 ixy1 = permute(ixy + iz1);
+
+		vec4 gx0 = ixy0 / 7.0;
+		vec4 gy0 = fract(floor(gx0) / 7.0) - 0.5;
+		gx0 = fract(gx0);
+		vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);
+		vec4 sz0 = step(gz0, vec4(0.0));
+		gx0 -= sz0 * (step(0.0, gx0) - 0.5);
+		gy0 -= sz0 * (step(0.0, gy0) - 0.5);
+
+		vec4 gx1 = ixy1 / 7.0;
+		vec4 gy1 = fract(floor(gx1) / 7.0) - 0.5;
+		gx1 = fract(gx1);
+		vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);
+		vec4 sz1 = step(gz1, vec4(0.0));
+		gx1 -= sz1 * (step(0.0, gx1) - 0.5);
+		gy1 -= sz1 * (step(0.0, gy1) - 0.5);
+
+		vec3 g000 = vec3(gx0.x,gy0.x,gz0.x);
+		vec3 g100 = vec3(gx0.y,gy0.y,gz0.y);
+		vec3 g010 = vec3(gx0.z,gy0.z,gz0.z);
+		vec3 g110 = vec3(gx0.w,gy0.w,gz0.w);
+		vec3 g001 = vec3(gx1.x,gy1.x,gz1.x);
+		vec3 g101 = vec3(gx1.y,gy1.y,gz1.y);
+		vec3 g011 = vec3(gx1.z,gy1.z,gz1.z);
+		vec3 g111 = vec3(gx1.w,gy1.w,gz1.w);
+
+		vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));
+		g000 *= norm0.x;
+		g010 *= norm0.y;
+		g100 *= norm0.z;
+		g110 *= norm0.w;
+		vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));
+		g001 *= norm1.x;
+		g011 *= norm1.y;
+		g101 *= norm1.z;
+		g111 *= norm1.w;
+
+		float n000 = dot(g000, Pf0);
+		float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));
+		float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));
+		float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));
+		float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));
+		float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));
+		float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));
+		float n111 = dot(g111, Pf1);
+
+		vec3 fade_xyz = fade(Pf0);
+		vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);
+		vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);
+		float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x);
+		return 2.2 * n_xyz;
+	}
+
+
+	void main(){
+
+		vec2 st = vTexCoord;
+		vec2 stDistorted = st*1.0001+vec2(cnoise(vec3(vTexCoord*500.,u_time*2.)),
+															 cnoise(vec3(vTexCoord*500.,u_time*2.+100.)))*0.12
+												;
+
+ 		st.y = 1.0 - st.y;
+ 		stDistorted.y = 1.0 - stDistorted.y;
+		vec3 color = vec3(0.);
+
+		vec3 tex = blur(tex0,st,vec2(0.01));
+		// vec4 texg = texture2D(tex0,sin(st*30.+u_time)*st);
+		// vec4 texb = texture2D(tex0,sin(st*20.+u_time)*st);
+
+		float d = distance(stDistorted,u_mouse);
+		float d2 = distance(stDistorted,u_mouse+vec2(cos(u_time),sin(u_time))*0.1 );
+		float d3 = distance(stDistorted,u_mouse+vec2(cos(u_time+PI),sin(u_time+PI))*0.1);
+
+    // u_mouse control
+		// color.r+=smoothstep(0.1+sin(u_time+.1)*0.05,0.01,d)*(sin(u_time*1.)+1.) ;
+		// color.g+=smoothstep(0.1+sin(u_time*1.5+.2)*0.05,0.02,d2)*(sin(u_time*2.)+1.);
+		// color.b+=smoothstep(0.1+sin(u_time*5.+.3)*0.05,0.03,d3)*(sin(u_time*3.)+1.);
+
+//connecting to a boolean, over 1 is true, else false, green is scaled to .6
+ if (u_splash>1.){
+    color.r+=u_mousestrength*(smoothstep(0.1+sin(u_time+.1)*0.05,0.01,d)*(sin(u_time*1.)+1.)) ;
+    color.g+=(u_mousestrength*.6)*(smoothstep(0.1+sin(u_time*1.5+.2)*0.05,0.02,d2)*(sin(u_time*2.)+1.));
+    color.b+=(u_mousestrength*.9)*(smoothstep(0.1+sin(u_time*5.+.3)*0.05,0.03,d3)*(sin(u_time*3.)+1.));
+}
+
+
+		color += tex*0.9999*(1.+cnoise(vec3((stDistorted	 -vec2(0,0.5)	)*20.,u_time+st.x+st.y))/10.);
+
+// speed of color extinction
+		color*=0.9995;
+
+		// color.r+=cnoise(vec3(st,u_time))*0.1;
+		if (color.r<0.005){
+			color.r=0.;
+		}
+		if (color.g<0.005){
+			color.g=0.;
+		}
+		if (color.b<0.005){
+			color.b=0.;
+		}
+		gl_FragColor= vec4(color,1.0);
+	}
+`
+
+const vert1 = `
+// vert file and comments from adam ferriss
+// https://github.com/aferriss/p5jsShaderExamples
+
+// our vertex data
+attribute vec3 aPosition;
+attribute vec2 aTexCoord;
+
+// lets get texcoords just for fun!
+varying vec2 vTexCoord;
+
+void main() {
+  // copy the texcoords
+  vTexCoord = aTexCoord;
+
+  // copy the position data into a vec4, using 1.0 as the w component
+  vec4 positionVec4 = vec4(aPosition, 1.0);
+  positionVec4.xy = positionVec4.xy * 2.0 - 1.0;
+
+  // send the vertex information on to the fragment shader
+  gl_Position = positionVec4;
+}
 `;
