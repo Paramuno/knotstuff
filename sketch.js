@@ -38,6 +38,8 @@ let floaters = [] // floaters img array
 let floRots = [] // array for rotations of the floaters
 let seed1 = 0 // noise seeds
 let seed2 = 1000
+let txRwalk=0
+let tyRwalk=0
 
 function preload() {
   for (let i = 0; i < knotsNum; i++) { // initialize all available knots
@@ -110,21 +112,28 @@ function setup() {
   }
   amplitude = new p5.Amplitude()
   sound.connect(amplitude)
+  spectralCentroid=600 // initializing variable to pass to shader before sound is fftanalyzed
 }
 
 function draw() {
   if (getAudioContext().state !== 'running') { // If audio context is running
-    background(41, 36, 36)
+    background(38, 29, 29)
     textFont('ubuntu')
     textSize(width / 50)
     textAlign(CENTER)
     fill(255)
     text('🎤 Click para activar micrófono, silba para navegar', width / 2, height / 2)
-    textSize(width / 25)
+    textSize(width / 24)
+    //textFont(acid)
+    fill(105,2,2)
+    text('Cómo ver con los ojos cerrados', (width / 2)+txRwalk, (height * .45)+tyRwalk)
+    textSize(width / 24.2)
     fill(255, 175)
-    text('Cómo ver con los ojos cerrados', width / 2, height * .45)
+    text('Cómo ver con los ojos cerrados', (width / 2), (height * .45))
+    let fac = .15
+    txRwalk+=map(random(),0,1,-fac,fac)
+    tyRwalk+=map(random(),0,1,-fac,fac)
   } else {
-
     if (height < (width*1.4)) { // detecting mobile devices by aspect ratio
       drawShader()
     } else {

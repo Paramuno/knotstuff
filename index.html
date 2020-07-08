@@ -12,6 +12,7 @@
       padding: 0;
       margin: 0;
       font-family: 'Ubuntu', sans-serif;
+      background-color: #261D1D;
     }
   </style>
   <script src="libraries/whistledetect/whistle.build.js"></script>
@@ -23,6 +24,7 @@
   <script src="sketch.js"></script>
   </div>
 </head>
+
 <body onload="alertSmallbrowsers()">
   <script>
     function alertSmallbrowsers() {
@@ -30,7 +32,9 @@
         alert("Agranda tu navegador y refresca para ver toda la interfaz - Please resize your browser and refresh to see the whole interface");
       }
     }
-    whistlerr.setConfig({sampleThreshold: 2})
+    whistlerr.setConfig({
+      sampleThreshold: 2
+    })
     // whistlerr.detect(function() {
     //   whistling = true
     // })
@@ -43,4 +47,5 @@
 
 
 </body>
+
 </html>
