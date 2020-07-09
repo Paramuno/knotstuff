@@ -1,6 +1,6 @@
-**DONE**Think about the interface aesthetical implications /// play with the shader colors make it dark/gray and saturated
+**DONE, ADDED 2 SHADERS** Think about the interface aesthetical implications /// play with the shader colors make it dark/gray and saturated
 
-Add more knots (up to 7) and distribute them in the rangelower // this is compound with the 2D knotspace
+*READY*Add more knots 7/10 and distribute them in the rangelower // this is compound with the 2D knotspace
 
 **CAN POSTPONE**Make alt control for people wout whistle // cambiar de modo icon and display it on corner // this can be done with a link to another sketch
 
@@ -8,6 +8,6 @@ Add more knots (up to 7) and distribute them in the rangelower // this is compou
 
 **CANT IMAGINE UNDULATIONS W/ STATIC BEZIERS**//maybe undulate knots? // no need
 
-Add text search function, draw phrases where word is written and make them links to specific texts
+**DONE, FUCK CARGO CC TOO ANNOYING** Work out cargo & github integration
 
-Work out cargo & github integration
+Add text search function, draw phrases where word is written and make them links to specific texts
