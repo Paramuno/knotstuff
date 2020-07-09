@@ -13,6 +13,7 @@ let pageCenter // offset for centering
 
 // let knotspaceX // Slider for position in whislte range
 let knotspace = [] // Array which contains all saved JSONs
+let knotspaceextra = []
 let vel = .00001 // default initial velocity for interpolating to looseknot
 let looseknot = false // does the knot return to loose all the time?
 let permissiongiven = false
@@ -31,7 +32,7 @@ let spectralCentroid // centroid in Hz
 let centroids = [] // A centroid buffer
 let averagingCentroids = true // smoothing Centroid by averaging with buffer
 
-let chooseBuffer // A buffer to save the last chosen word and display it
+let chosenWordBuffer // A buffer to save the last chosen word and display it
 const knotsNum = 4 // Number of available knot JSONs
 
 let floaters = [] // floaters img array
@@ -41,9 +42,15 @@ let seed2 = 1000
 let txRwalk = 0
 let tyRwalk = 0
 
+//text variables
+let iStrFound = [] //Array with the indexes of found strings
+
 function preload() {
   for (let i = 0; i < knotsNum; i++) { // initialize all available knots
     knotspace.push(loadJSON("data/knotJSON" + i + ".json"))
+  }
+  for (let i = 0; i < 3; i++) { // initialize all available knots
+    knotspaceextra.push(loadJSON("data/extraknot" + i + ".json"))
   }
   loosejson = loadJSON("data/loosejson.json")
   keyWords = loadJSON("data/WordSets.json")
@@ -181,8 +188,9 @@ function draw() {
       whistling = false // reset whistling
     } else if (looseknot) {
       interpolatetoLooseKnot(loosejson) // interpolate until the knot is loose
-      drawKeywords(false, chooseBuffer) // use the last randomly chosen word
+      drawKeywords(false, chosenWordBuffer) // use the last randomly chosen word
     }
+    drawFoundtext()
   }
 }
 
@@ -409,7 +417,7 @@ function drawKeywords(arewewhistling, choose) {
   // Choose randomly between set depending on currComparment and display them
   // Display also all texts where that word is found, let the user choose one
   if (choose != undefined) { // safety feature
-    chooseBuffer = choose
+    chosenWordBuffer = choose
   }
   textSize(height / 30)
   //sourceCanvas.textSize(width / 30) // Trying to add trail for text, same below
@@ -423,13 +431,32 @@ function drawKeywords(arewewhistling, choose) {
       //sourceCanvas.fill(floor(random(255)),floor(random(255)),floor(random(255)))
       //sourceCanvas.text(keyWords[currC(spectralCentroid, knotspace, 0)].s[choose], width / 2, height * .2)
     } else {
-      text(keyWords[currC(spectralCentroid, knotspace, 0)].s[chooseBuffer], width / 2, height * .2)
+      text(keyWords[currC(spectralCentroid, knotspace, 0)].s[chosenWordBuffer], width / 2, height * .2)
     }
   } else if (spectralCentroid <= minHz) {
-    text(keyWords[0].s[chooseBuffer], width / 2, height * .2)
+    text(keyWords[0].s[chosenWordBuffer], width / 2, height * .2)
   } else if (spectralCentroid >= maxHz) {
-    text(keyWords[knotsNum - 2].s[chooseBuffer], width / 2, height * .2)
+    text(keyWords[knotsNum - 2].s[chosenWordBuffer], width / 2, height * .2)
   }
+}
+
+function drawFoundtext() {
+  noStroke()
+  textSize(height / 65)
+  textStyle(ITALIC)
+  currKeyword = keyWords[currC(spectralCentroid, knotspace, 0)].s[chosenWordBuffer] // defined currKeyword as actual currC keyword
+
+  if (currKeyword != undefined) { // if currKeyword is initialized and defined
+    getStrIndex(textArray[0], currKeyword) // get its index in text string
+    text(textArray[0].slice(iStrFound[0] - 20, iStrFound[0] + currKeyword.length + 20), // Slice it and surrounding 20 strings to draw them
+      width * .5, height * .8)
+  }
+  textStyle(NORMAL)
+}
+
+function getStrIndex(sourceStr, searchStr) {
+  iStrFound = [...sourceStr.matchAll(new RegExp(searchStr, 'gi'))].map(a => a.index)
+  //print(iStrFound)
 }
 
 function drawAttractor() { // Drawing attractors between base bpoints
@@ -637,7 +664,7 @@ function interpolatetoLooseKnot(json) { // advance every frame
       vel = .0001
     }
   } else { // consoleprint the number of bpoints required
-    print("Loose knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(json).length)
+    //print("Loose knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(json).length)
   }
 }
 
@@ -743,6 +770,10 @@ function downloadObjectAsJson(exportObj, exportName) {
   document.body.appendChild(downloadAnchorNode); // required for firefox
   downloadAnchorNode.click();
   downloadAnchorNode.remove();
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
 }
 
 // function drawCurve(curve, offset) { // other drawfunction in ctx Canvas
