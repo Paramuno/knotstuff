@@ -196,7 +196,9 @@ function draw() {
     }
     whistlingArray.push(0) // cleaning Buffer
     whistlingArray.shift()
+    if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
     drawShader1() // after checking for whistling, drawShader1
+    }
     if (whistling) {
       spectrum = fft.analyze()
       spectralCentroid = fft.getCentroid()
