@@ -197,7 +197,7 @@ function draw() {
     whistlingArray.push(0) // cleaning Buffer
     whistlingArray.shift()
     if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
-    drawShader1() // after checking for whistling, drawShader1
+      drawShader1() // after checking for whistling, drawShader1
     }
     if (whistling) {
       spectrum = fft.analyze()
@@ -453,7 +453,7 @@ function drawKeywords(arewewhistling, choose) {
       text(keyWords[currC(spectralCentroid, knotspace, 0)].s[choose], width / 2, height * .2)
       //sourceCanvas.fill(floor(random(255)),floor(random(255)),floor(random(255)))
       //sourceCanvas.text(keyWords[currC(spectralCentroid, knotspace, 0)].s[choose], width / 2, height * .2)
-    } else {
+    } else if (chosenWordBuffer != undefined){
       text(keyWords[currC(spectralCentroid, knotspace, 0)].s[chosenWordBuffer], width / 2, height * .2)
     }
   } else if (spectralCentroid <= minHz) {
@@ -465,7 +465,7 @@ function drawKeywords(arewewhistling, choose) {
 
 function drawFoundtext() {
   noStroke()
-  textSize(height / 65)
+  textSize(height / 60)
   textStyle(ITALIC)
   let currKeyword
   if ((chosenWordBuffer != undefined) && (currC(spectralCentroid, knotspace, 0) != undefined)) { //if currKeyword is initialized and defined
@@ -804,7 +804,10 @@ function downloadObjectAsJson(exportObj, exportName) {
 }
 
 function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
+  if (height < (width * 1.4)) {
+    resizeCanvas(windowWidth, windowHeight)
+    sourceCanvas = createGraphics(windowWidth, windowHeight - 4) // reinitializing sourceCanvas graphics so that shader1 is updated to new windowSize
+  }
 }
 
 // function drawCurve(curve, offset) { // other drawfunction in ctx Canvas
