@@ -1,4 +1,4 @@
-let drawControls = true
+let drawControls = false // draw bezier controls
 
 let activeBpoint // vector location of activebpoint
 
@@ -15,7 +15,7 @@ let pageCenter // offset for centering
 let knotspace = [] // Array which contains all saved JSONs
 let knotspaceextra = []
 let vel = .00001 // default initial velocity for interpolating to looseknot
-let looseknot = false // does the knot return to loose all the time?
+let looseknot = true // does the knot return to loose all the time?
 let permissiongiven = false
 let whistling = false // Is whistling detected?
 let whistlingArray = [] // A buffer array to smooth out whistling signals
@@ -128,6 +128,27 @@ function setup() {
   amplitude = new p5.Amplitude()
   sound.connect(amplitude)
   spectralCentroid = 600 // initializing variable to pass to shader before sound is fftanalyzed
+
+  init24knots() // initializing all knots for immediate functionality
+}
+
+function init24knots() {
+  let cw = (width / 2)
+  let ch = (height / 2)
+  prevactiveBezier = bpointArray[1]
+  activeBezier = bpointArray[2]
+  for (let i = 0; i < 10; i++) {
+    bpointArray.splice(prevactiveBezier.index + 1, 0, new Bpoint(false, createVector(cw - 0, ch + 50),
+      createVector(cw - 0, ch + 50), createVector(cw - 0, ch + 50), i + activeBezier.index))
+  }
+  for (let i = 0; i < 10; i++) {
+    bpointArray.push(new Bpoint(false, createVector(cw - 0, ch - 50), createVector(cw - 0, ch - 50),
+      createVector(cw - 0, ch - 50), bpointArray.length))
+  }
+  for (let i = 0; i < bpointArray.length; i++) { //updatinng indexes
+    bpointArray[i].index = i
+  }
+  print("current Bpoints:" + bpointArray.length)
 }
 
 function draw() {
@@ -445,8 +466,8 @@ function drawFoundtext() {
   textSize(height / 65)
   textStyle(ITALIC)
   let currKeyword
- if((chosenWordBuffer != undefined) && (currC(spectralCentroid, knotspace, 0) != undefined)){ //if currKeyword is initialized and defined
-   currKeyword = keyWords[currC(spectralCentroid, knotspace, 0)].s[chosenWordBuffer]   // defined currKeyword as actual currC keyword
+  if ((chosenWordBuffer != undefined) && (currC(spectralCentroid, knotspace, 0) != undefined)) { //if currKeyword is initialized and defined
+    currKeyword = keyWords[currC(spectralCentroid, knotspace, 0)].s[chosenWordBuffer] // defined currKeyword as actual currC keyword
     getStrIndex(textArray[0], currKeyword) // get its index in text string
     text(textArray[0].slice(iStrFound[0] - 20, iStrFound[0] + currKeyword.length + 20), // Slice it and surrounding 20 strings to draw them
       width * .5, height * .8)
