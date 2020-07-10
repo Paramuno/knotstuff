@@ -444,11 +444,19 @@ function drawFoundtext() {
   noStroke()
   textSize(height / 65)
   textStyle(ITALIC)
-  currKeyword = keyWords[currC(spectralCentroid, knotspace, 0)].s[chosenWordBuffer] // defined currKeyword as actual currC keyword
-
-  if (currKeyword != undefined) { // if currKeyword is initialized and defined
+  let currKeyword
+ if((chosenWordBuffer != undefined) && (currC(spectralCentroid, knotspace, 0) != undefined)){ //if currKeyword is initialized and defined
+   currKeyword = keyWords[currC(spectralCentroid, knotspace, 0)].s[chosenWordBuffer]   // defined currKeyword as actual currC keyword
     getStrIndex(textArray[0], currKeyword) // get its index in text string
     text(textArray[0].slice(iStrFound[0] - 20, iStrFound[0] + currKeyword.length + 20), // Slice it and surrounding 20 strings to draw them
+      width * .5, height * .8)
+  } else if (spectralCentroid <= minHz) {
+    getStrIndex(textArray[0], keyWords[0].s[chosenWordBuffer]) // Same as drawKeywords, use first set on the keyWord Array, get the index of the chosenWord
+    text(textArray[0].slice(iStrFound[0] - 20, iStrFound[0] + keyWords[0].s[chosenWordBuffer].length + 20), // Slice it from text
+      width * .5, height * .8)
+  } else if (spectralCentroid >= maxHz) {
+    getStrIndex(textArray[0], keyWords[knotsNum - 2].s[chosenWordBuffer]) // Same as drawKeywords, use last set on the keyWord Array, get the index of the chosenWord
+    text(textArray[0].slice(iStrFound[0] - 20, iStrFound[0] + keyWords[knotsNum - 2].s[chosenWordBuffer].length + 20), // Slice it from text
       width * .5, height * .8)
   }
   textStyle(NORMAL)
