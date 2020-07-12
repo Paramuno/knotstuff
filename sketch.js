@@ -730,6 +730,7 @@ function keyPressed() {
     activeBezier.isAsymmetrical = !activeBezier.isAsymmetrical // locked handle but asym lenghts is not defined yet
   }
   if (keyCode === 83) { //s
+    finalBeziers = [] // empty first
     for (let i = 0; i < bpointArray.length; i++) { // filling finalBeziers array with Bpointpos objects (simplified Bpoints)
       finalBeziers.push(new Bpointpos(bpointArray[i].index, bpointArray[i].isBase,
         bpointArray[i].location.x, bpointArray[i].location.y,
