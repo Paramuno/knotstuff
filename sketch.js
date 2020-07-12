@@ -173,7 +173,7 @@ function draw() {
     if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
       drawShader()
     } else {
-      background(41, 36, 36)
+      background(38, 29, 29)
     }
 
     imageMode(CENTER)
@@ -804,10 +804,10 @@ function downloadObjectAsJson(exportObj, exportName) {
 }
 
 function windowResized() {
-  if (height < (width * 1.4)) {
+  //if (height < (width * 1.4)) {
     resizeCanvas(windowWidth, windowHeight)
     sourceCanvas = createGraphics(windowWidth, windowHeight - 4) // reinitializing sourceCanvas graphics so that shader1 is updated to new windowSize
-  }
+//  }
 }
 
 // function drawCurve(curve, offset) { // other drawfunction in ctx Canvas
