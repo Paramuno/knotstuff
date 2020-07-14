@@ -15,7 +15,7 @@ let pageCenter // offset for centering
 let knotspace = [] // Array which contains all saved JSONs
 let knotspaceextra = []
 let vel = .00001 // default initial velocity for interpolating to looseknot
-let looseknot = true // does the knot return to loose all the time?
+let looseknot = false // does the knot return to loose all the time?
 let permissiongiven = false
 let whistling = false // Is whistling detected?
 let whistlingArray = [] // A buffer array to smooth out whistling signals
@@ -133,6 +133,13 @@ function setup() {
   spectralCentroid = 600 // initializing variable to pass to shader before sound is fftanalyzed
 
   init24knots() // initializing all knots for immediate functionality
+
+  volS = createSlider(0, 500, 0, 0)
+  volS.position(10, 10, 0, 0)
+  volS.style('width', '800px')
+  hzS = createSlider(0, 500, 0, 0)
+  hzS.position(10, 50, 0, 0)
+  hzS.style('width', '800px')
 }
 
 function init24knots() {
@@ -202,30 +209,27 @@ function draw() {
     if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
       drawShader1() // after checking for whistling, drawShader1
     }
+    iiInterpolatebpointArray2D(testknots)
     if (whistling) {
       spectrum = fft.analyze()
       spectralCentroid = fft.getCentroid()
       fill(200)
-      text(round(spectralCentroid) + ' Hz', width / 2, 100)
+      //text(round(spectralCentroid) + ' Hz', width / 2, 100)
+      text('Vol:' + map(sound.getLevel(), .0006, .02, 0, 3), width / 2, 100)
+      text('Hz:' + map(spectralCentroid, minHz, maxHz, 0, 3), width / 2, 50)
       centroids.push(spectralCentroid) //push Centroid to average it with previous
       centroids.shift()
-      interpolatebpointArray(knotspace)
-      drawKeywords(true, chooseKeywords()) // drawKeywords(whistling?)
+      //interpolatebpointArray(knotspace)
+      //interpolatebpointArray2D(testknots)
+      //drawKeywords(true, chooseKeywords()) // drawKeywords(whistling?)
       whistling = false // reset whistling
     } else if (looseknot) {
       interpolatetoLooseKnot(loosejson) // interpolate until the knot is loose
-      drawKeywords(false, chosenWordBuffer) // use the last randomly chosen word
+      //drawKeywords(false, chosenWordBuffer) // use the last randomly chosen word
     }
-    drawFoundtext()
-    // if (chan < 20) {
-    //   chan++
-    // } else {
-    //   print(map(sound.getLevel(), .0006, .02, 0, 3))
-    //   chan = 0
-    // }
+    //drawFoundtext()
   }
 }
-let chan = 61
 
 function drawShader() {
   hyp.setUniform("iResolution", [width, height]); //pass some values to the shader
@@ -601,7 +605,7 @@ function interpolatebpointArray(jsonArray) { //add the possibility to undulate i
     //   currCidBuffer[currCidBuffer.length-2].upper, 0, 1, true)
     ks = map(averageCentroid, currC(averageCentroid, jsonArray, 1), // maps ks to currClower and upper limits
       currC(averageCentroid, jsonArray, 2), 0, 1, true)
-    print(currC(averageCentroid, jsonArray, 0))
+    //print(currC(averageCentroid, jsonArray, 0))
   }
   if (json1 == undefined || json2 == undefined) { // Avoid crashing with a json=undefined
     json1 = jsonArray[0]
@@ -634,22 +638,16 @@ function interpolatebpointArray(jsonArray) { //add the possibility to undulate i
     print("Saved knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(jsonArray[0]).length)
   }
 }
-
-function finalInterpolatebpointArray(jsonArray, vol, hz) {
-  // let vol = map(sound.getLevel(), .0006, .02, 0, 3)
-  // let hz = map(spectralCentroid,rangelower,rangeupper,0,3)
-  let ks
-  let json1
+/////
+function interpolatebpointArray2D(jsonArray) {
+  let vol = map(sound.getLevel(), .0006, .02, 0, 3)
+  let hz = map(spectralCentroid, minHz, maxHz, 0, 3)
+  let ks // Knotspace value
+  let json1 // json holders
   let json2
-  let temp1loc = []
-  let temp1h1 = []
-  let temp1h2 = []
   let json3
   let json4
-  let temp2loc = []
-  let temp2h1 = []
-  let temp2h2 = []
-  let j1lerpj2
+  let j1lerpj2 //objects holding lerped jsons for finallerp
   let j3lerpj4
 
   if (hz <= 1) { // zone 1
@@ -811,326 +809,464 @@ function finalInterpolatebpointArray(jsonArray, vol, hz) {
   }
 }
 
-  function resultObj() {
-    this.locarray = []
-    this.h1array = []
-    this.h2array = []
-  }
+function iiInterpolatebpointArray2D(jsonArray) {
+  //let vol = map(sound.getLevel(), .0006, .02, 0, 3)
+  //let hz = map(spectralCentroid, minHz, maxHz, 0, 3)
+  let vol = map(volS.value(), 0, 500, -.2, 2.2)
+  let hz = map(hzS.value(), 0, 500, -.2, 3.2)
+  fill(255)
+  textSize(15)
+  text('vol' + vol, width * .7, 35)
+  text('hz' + hz, width * .7, 85)
+  let ks // Knotspace value
+  let json1 // json holders
+  let json2
+  let json3
+  let json4
+  let j1lerpj2 //objects holding lerped jsons for finallerp
+  let j3lerpj4
+  let sq = .2 // squaresize
 
-  function lerpThis(json1, json2, factor, resultObj) {
-    let locorigin = createVector()
-    let h1origin = createVector()
-    let h2origin = createVector()
-    let loctarget = createVector()
-    let h1target = createVector()
-    let h2target = createVector()
+  if (hz < sq) {
+    updatebpointArray(jsonArray[0])
+  } else if (isBetween(hz, 1 - sq, 1 + sq, true) && (vol < sq)) {
+    updatebpointArray(jsonArray[1])
+  } else if (isBetween(hz, 1 - sq, 1 + sq, true) && isBetween(vol, 1 - sq, 1 + sq, true)) {
+    updatebpointArray(jsonArray[2])
+  } else if (isBetween(hz, 1 - sq, 1 + sq, true) && (vol > (2 - sq))) {
+    updatebpointArray(jsonArray[3])
+  } else if (isBetween(hz, 2 - sq, 2 + sq, true) && (vol < sq)) {
+    updatebpointArray(jsonArray[4])
+  } else if (isBetween(hz, 2 - sq, 2 + sq, true) && isBetween(vol, 1 - sq, 1 + sq, true)) {
+    updatebpointArray(jsonArray[5])
+  } else if (isBetween(hz, 2 - sq, 2 + sq, true) && (vol > (2 - sq))) {
+    updatebpointArray(jsonArray[6])
+  } else if ((hz > (3 - sq)) && (vol < sq)) {
+    updatebpointArray(jsonArray[7])
+  } else if ((hz > (3 - sq)) && isBetween(vol, 1 - sq, 1 + sq, true)) {
+    updatebpointArray(jsonArray[8])
+  } else if ((hz > (3 - sq)) && (vol > (2 - sq))) {
+    updatebpointArray(jsonArray[9])
+  }
+  if (hz <= 1) { // zone 1
+    json1 = jsonArray[0] //
+    json2 = jsonArray[0]
+    //fill j1 lerp j2 , no need to lerp here
+    j1lerpj2 = new resultObj()
     for (i = 0; i < bpointArray.length; i++) {
-      locorigin.x = json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
-      locorigin.y = json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
-      h1origin.x = json1[i].h1x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
-      h1origin.y = json1[i].h1y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
-      h2origin.x = json1[i].h2x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
-      h2origin.y = json1[i].h2y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
-
-      loctarget.x = json2[i].lx + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
-      loctarget.y = json2[i].ly + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
-      h1target.x = json2[i].h1x + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
-      h1target.y = json2[i].h1y + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
-      h2target.x = json2[i].h2x + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
-      h2target.y = json2[i].h2y + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
-
-      resultObj.locarray[i] = p5.Vector.lerp(locorigin, loctarget, factor)
-      resultObj.h1array[i] = p5.Vector.lerp(h1origin, h1target, factor)
-      resultObj.h2array[i] = p5.Vector.lerp(h2origin, h2target, factor)
+      j1lerpj2.locarray[i] = createVector(json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
+        json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
+      j1lerpj2.h1array[i] = createVector(json1[i].h1x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
+        json1[i].h1y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
+      j1lerpj2.h2array[i] = createVector(json1[i].h2x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
+        json1[i].h2y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
     }
-  }
-
-  function finalLerp(obj1, obj2, factor) {
-    for (i = 0; i < bpointArray.length; i++) {
-      bpointArray[i].location = p5.Vector.lerp(obj1.locarray[i], obj2.locarray[i], factor)
-      bpointArray[i].h1location = p5.Vector.lerp(obj1.h1array[i], obj2.h1array[i], factor)
-      bpointArray[i].h2location = p5.Vector.lerp(obj1.h2array[i], obj2.h2array[i], factor)
+    if (vol <= 1) { // zone 1.1
+      json3 = jsonArray[1]
+      json4 = jsonArray[2]
+      //j3 lerp j4 by volume
+      ks = map(vol, sq, 1 - sq, 0, 1, true) // map volume, constrainValue true
+      j3lerpj4 = new resultObj()
+      lerpThis(json3, json4, ks, j3lerpj4)
+      //redefine ks in hz
+      ks = map(hz, sq, 1 - sq, 0, 1, true)
+      finalLerp(j1lerpj2, j3lerpj4, ks)
+    } else { // zone 1.2
+      json3 = jsonArray[2]
+      json4 = jsonArray[3]
+      //j3 lerp j4 by volume
+      ks = map(vol, 1 + sq, 2 - sq, 0, 1, true) // map volume, constrainValue true
+      j3lerpj4 = new resultObj()
+      lerpThis(json3, json4, ks, j3lerpj4)
+      //redefine ks in hz
+      ks = map(hz, sq, 1 - sq, 0, 1, true)
+      finalLerp(j1lerpj2, j3lerpj4, ks)
     }
-  }
-  // let locorigin = createVector()
-  // let h1origin = createVector()
-  // let h2origin = createVector()
-  // let loctarget = createVector()
-  // let h1target = createVector()
-  // let h2target = createVector()
-  // for (i = 0; i < bpointArray.length; i++) {
-  //   locorigin = obj1.locarray[i]
-  //   h1origin = obj1.h1array[i]
-  //   h2origin = obj1.h2array[i]
-  //
-  //   loctarget = obj2.locarray[i]
-  //   h1target = obj2.h1array[i]
-  //   h2target = obj2.h2array[i]
-  //
-  //   bpointArray[i].location = p5.Vector.lerp(locorigin, loctarget, ks)
-  //   bpointArray[i].h1location = p5.Vector.lerp(h1origin, h1target, ks)
-  //   bpointArray[i].h2location = p5.Vector.lerp(h2origin, h2target, ks)
-  // }
-
-  //
-  // function JsonCalc(json1, json2, factor) {
-  //   this.location = []
-  //   this.h1location = []
-  //   this.h2location = []
-  //   this.locorigin = createVector()
-  //   this.h1origin = createVector()
-  //   this.h2origin = createVector()
-  //   this.loctarget = createVector()
-  //   this.h1target = createVector()
-  //   this.h2target = createVector()
-  //
-  //   this.lerpjsons = function() {
-  //     if (bpointArray.length == Object.keys(jsonArray[0]).length) { // if bpointArray length is enough, defines origins and targets and lerps by ks
-  //       for (i = 0; i < bpointArray.length; i++) {
-  //         this.locorigin.x = json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
-  //         this.locorigin.y = json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
-  //         this.h1origin.x = json1[i].h1x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
-  //         this.h1origin.y = json1[i].h1y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
-  //         this.h2origin.x = json1[i].h2x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
-  //         this.h2origin.y = json1[i].h2y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
-  //
-  //         this.loctarget.x = json2[i].lx + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
-  //         this.loctarget.y = json2[i].ly + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
-  //         this.h1target.x = json2[i].h1x + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
-  //         this.h1target.y = json2[i].h1y + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
-  //         this.h2target.x = json2[i].h2x + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
-  //         this.h2target.y = json2[i].h2y + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
-  //
-  //         this.location[i] = p5.Vector.lerp(this.locorigin, this.loctarget, factor)
-  //         this.h1location[i] = p5.Vector.lerp(this.h1origin, this.h1target, factor)
-  //         this.h2location[i] = p5.Vector.lerp(this.h2origin, this.h2target, factor)
-  //       }
-  //     } else { // consoleprint the number of bpoints required
-  //       print("Saved knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(jsonArray[0]).length)
-  //     }
-  //   }
-  // }
-
-
-  /////
-  function currCholder(centroid, jsonArray) { // current Compartment holder to save on buffer
-    this.id = currC(centroid, jsonArray, 0)
-    this.lower = currC(centroid, jsonArray, 1)
-    this.upper = currC(centroid, jsonArray, 2)
-  }
-
-  function currC(centroid, jsonArray, returnmode) { // current compartment, returns currC id or currC lowerrange or currC upperrange
-    const kcAmm = knotspace.length - 1 // |  |  | -> 3 knots means only 2 compartments
-    const range = maxHz - minHz // range of whistling
-    const kcSize = range / (knotspace.length - 1) // knot compartment size
-    let currentkCmin
-    let currentkCmax
-    if (returnmode == 0) {
-      for (i = 0; i < kcAmm; i++) { // return i if centroid is in between min&maxHz values for compartment[i]
-        currentkCmin = minHz + (kcSize * i)
-        currentkCmax = minHz + (kcSize * (i + 1))
-        if (isBetween(centroid, currentkCmin, currentkCmax, true)) { // This shit was crashing it => old: Adding +1 so that include range doesn't overlap w/ previous
-          return i
-        }
-      }
-    } else if (returnmode == 1) {
-      for (i = 0; i < kcAmm; i++) { // return currentkCmin
-        currentkCmin = minHz + (kcSize * i)
-        currentkCmax = minHz + (kcSize * (i + 1))
-        if (isBetween(centroid, currentkCmin, currentkCmax, true)) {
-          return currentkCmin
-        }
-      }
-    } else if (returnmode == 2) {
-      for (i = 0; i < kcAmm; i++) { // return currentkCmax
-        currentkCmin = minHz + (kcSize * i)
-        currentkCmax = minHz + (kcSize * (i + 1))
-        if (isBetween(centroid, currentkCmin, currentkCmax, true)) {
-          return currentkCmax
-        }
-      }
-    }
-  }
-
-  function isBetween(num, rangelower, rangeupper, inclusive) { // is a number between these two?
-    let min = Math.min(rangelower, rangeupper)
-    let max = Math.max(rangelower, rangeupper)
-    return inclusive ? num >= min && num <= max : num > min && num < max
-  }
-
-  function interpolatetoLooseKnot(json) { // advance every frame
-    let loctarget = createVector()
-    let h1target = createVector()
-    let h2target = createVector()
-
-    if (bpointArray.length == Object.keys(loosejson).length) {
+  } else if (hz <= 2) { // zones 234
+    if (vol <= 1) { // zone 2
+      json1 = jsonArray[1] //
+      json2 = jsonArray[2]
+      json3 = jsonArray[4] //
+      json4 = jsonArray[5]
+      //j1 lerp j2 by volume
+      ks = map(vol, sq, 1 - sq, 0, 1, true) // map volume, constrainValue true
+      j1lerpj2 = new resultObj()
+      lerpThis(json1, json2, ks, j1lerpj2)
+      //j3 lerp j4 by volume
+      ks = map(vol, sq, 1 - sq, 0, 1, true) // map volume, constrainValue true
+      j3lerpj4 = new resultObj()
+      lerpThis(json3, json4, ks, j3lerpj4)
+      //redefine ks in hz
+      ks = map(hz, 1 + sq, 2 - sq, 0, 1, true) // map hz, constrainValue true
+      finalLerp(j1lerpj2, j3lerpj4, ks)
+    } else if (vol <= 2) { // zone 3
+      json1 = jsonArray[2] //
+      json2 = jsonArray[3]
+      json3 = jsonArray[5] //
+      json4 = jsonArray[6]
+      //j1 lerp j2 by volume
+      ks = map(vol, 1 + sq, 2 - sq, 0, 1, true) // map volume, constrainValue true
+      j1lerpj2 = new resultObj()
+      lerpThis(json1, json2, ks, j1lerpj2)
+      //j3 lerp j4 by volume
+      ks = map(vol, 1 + sq, 2 - sq, 0, 1, true) // map volume, constrainValue true
+      j3lerpj4 = new resultObj()
+      lerpThis(json3, json4, ks, j3lerpj4)
+      //redefine ks in hz
+      ks = map(hz, 1 + sq, 2 - sq, 0, 1, true) // map hz, constrainValue true
+      finalLerp(j1lerpj2, j3lerpj4, ks)
+    } else { // zone 4
+      json1 = jsonArray[3] //
+      json2 = jsonArray[3]
+      json3 = jsonArray[6] //
+      json4 = jsonArray[6]
+      // No need to consider volume anymore just pass values into resultObjs and make finallerp
+      j1lerpj2 = new resultObj()
       for (i = 0; i < bpointArray.length; i++) {
-        loctarget.x = json[i].lx + ((windowWidth / 2) - json[i].cx) + json[i].offx
-        loctarget.y = json[i].ly + ((windowHeight / 2) - json[i].cy) + json[i].offy
-        h1target.x = json[i].h1x + ((windowWidth / 2) - json[i].cx) + json[i].offx
-        h1target.y = json[i].h1y + ((windowHeight / 2) - json[i].cy) + json[i].offy
-        h2target.x = json[i].h2x + ((windowWidth / 2) - json[i].cx) + json[i].offx
-        h2target.y = json[i].h2y + ((windowHeight / 2) - json[i].cy) + json[i].offy
+        j1lerpj2.locarray[i] = createVector(json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
+          json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
+        j1lerpj2.h1array[i] = createVector(json1[i].h1x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
+          json1[i].h1y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
+        j1lerpj2.h2array[i] = createVector(json1[i].h2x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
+          json1[i].h2y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
+      } // using json1
+      j3lerpj4 = new resultObj()
+      for (i = 0; i < bpointArray.length; i++) {
+        j3lerpj4.locarray[i] = createVector(json3[i].lx + ((windowWidth / 2) - json3[i].cx) + json3[i].offx,
+          json3[i].ly + ((windowHeight / 2) - json3[i].cy) + json3[i].offy)
+        j3lerpj4.h1array[i] = createVector(json3[i].h1x + ((windowWidth / 2) - json3[i].cx) + json3[i].offx,
+          json3[i].h1y + ((windowHeight / 2) - json3[i].cy) + json3[i].offy)
+        j3lerpj4.h2array[i] = createVector(json3[i].h2x + ((windowWidth / 2) - json3[i].cx) + json3[i].offx,
+          json3[i].h2y + ((windowHeight / 2) - json3[i].cy) + json3[i].offy)
+      } // using json2
+      //redefine ks in hz
+      ks = map(hz, 1 + sq, 2 - sq, 0, 1, true) // map hz, constrainValue true
+      finalLerp(j1lerpj2, j3lerpj4, ks)
+    }
+  } else { // zones 567
+    if (vol <= 1) { // zone 5
+      json1 = jsonArray[4] //
+      json2 = jsonArray[5]
+      json3 = jsonArray[7] //
+      json4 = jsonArray[8]
+      //j1 lerp j2 by volume
+      ks = map(vol, sq, 1 - sq, 0, 1, true) // map volume, constrainValue true
+      j1lerpj2 = new resultObj()
+      lerpThis(json1, json2, ks, j1lerpj2)
+      //j3 lerp j4 by volume
+      ks = map(vol, sq, 1 - sq, 0, 1, true) // map volume, constrainValue true
+      j3lerpj4 = new resultObj()
+      lerpThis(json3, json4, ks, j3lerpj4)
+      //redefine ks in hz
+      ks = map(hz, 2 + sq, 3 - sq, 0, 1, true) // map hz, constrainValue true
+      finalLerp(j1lerpj2, j3lerpj4, ks)
+    } else if (vol <= 2) { // zone 6
+      json1 = jsonArray[5] //
+      json2 = jsonArray[6]
+      json3 = jsonArray[8] //
+      json4 = jsonArray[9]
+      //j1 lerp j2 by volume
+      ks = map(vol, 1 + sq, 2 - sq, 0, 1, true) // map volume, constrainValue true
+      j1lerpj2 = new resultObj()
+      lerpThis(json1, json2, ks, j1lerpj2)
+      //j3 lerp j4 by volume
+      ks = map(vol, 1 + sq, 2 - sq, 0, 1, true) // map volume, constrainValue true
+      j3lerpj4 = new resultObj()
+      lerpThis(json3, json4, ks, j3lerpj4)
+      //redefine ks in hz
+      ks = map(hz, 2 + sq, 3 - sq, 0, 1, true) // map hz, constrainValue true
+      finalLerp(j1lerpj2, j3lerpj4, ks)
+    } else { // zone 7
+      json1 = jsonArray[6] //
+      json2 = jsonArray[6]
+      json3 = jsonArray[9] //
+      json4 = jsonArray[9]
+      // No need to consider volume anymore just pass values into resultObjs and make finallerp
+      j1lerpj2 = new resultObj()
+      for (i = 0; i < bpointArray.length; i++) {
+        j1lerpj2.locarray[i] = createVector(json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
+          json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
+        j1lerpj2.h1array[i] = createVector(json1[i].h1x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
+          json1[i].h1y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
+        j1lerpj2.h2array[i] = createVector(json1[i].h2x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
+          json1[i].h2y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
+      } // using json1
+      j3lerpj4 = new resultObj()
+      for (i = 0; i < bpointArray.length; i++) {
+        j3lerpj4.locarray[i] = createVector(json3[i].lx + ((windowWidth / 2) - json3[i].cx) + json3[i].offx,
+          json3[i].ly + ((windowHeight / 2) - json3[i].cy) + json3[i].offy)
+        j3lerpj4.h1array[i] = createVector(json3[i].h1x + ((windowWidth / 2) - json3[i].cx) + json3[i].offx,
+          json3[i].h1y + ((windowHeight / 2) - json3[i].cy) + json3[i].offy)
+        j3lerpj4.h2array[i] = createVector(json3[i].h2x + ((windowWidth / 2) - json3[i].cx) + json3[i].offx,
+          json3[i].h2y + ((windowHeight / 2) - json3[i].cy) + json3[i].offy)
+      } // using json2
+      //redefine ks in hz
+      ks = map(hz, 2 + sq, 3 - sq, 0, 1, true) // map hz, constrainValue true
+      finalLerp(j1lerpj2, j3lerpj4, ks)
+    }
+  }
+}
 
-        bpointArray[i].location = p5.Vector.lerp(bpointArray[i].location, loctarget, vel)
-        bpointArray[i].h1location = p5.Vector.lerp(bpointArray[i].h1location, h1target, vel)
-        bpointArray[i].h2location = p5.Vector.lerp(bpointArray[i].h2location, h2target, vel)
+function resultObj() {
+  this.locarray = []
+  this.h1array = []
+  this.h2array = []
+}
+
+function lerpThis(json1, json2, factor, resultObj) {
+  let locorigin = createVector()
+  let h1origin = createVector()
+  let h2origin = createVector()
+  let loctarget = createVector()
+  let h1target = createVector()
+  let h2target = createVector()
+  for (i = 0; i < bpointArray.length; i++) {
+    locorigin.x = json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
+    locorigin.y = json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
+    h1origin.x = json1[i].h1x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
+    h1origin.y = json1[i].h1y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
+    h2origin.x = json1[i].h2x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
+    h2origin.y = json1[i].h2y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
+
+    loctarget.x = json2[i].lx + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
+    loctarget.y = json2[i].ly + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
+    h1target.x = json2[i].h1x + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
+    h1target.y = json2[i].h1y + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
+    h2target.x = json2[i].h2x + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
+    h2target.y = json2[i].h2y + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
+
+    resultObj.locarray[i] = p5.Vector.lerp(locorigin, loctarget, factor)
+    resultObj.h1array[i] = p5.Vector.lerp(h1origin, h1target, factor)
+    resultObj.h2array[i] = p5.Vector.lerp(h2origin, h2target, factor)
+  }
+}
+
+function finalLerp(obj1, obj2, factor) {
+  for (i = 0; i < bpointArray.length; i++) {
+    bpointArray[i].location = p5.Vector.lerp(obj1.locarray[i], obj2.locarray[i], factor)
+    bpointArray[i].h1location = p5.Vector.lerp(obj1.h1array[i], obj2.h1array[i], factor)
+    bpointArray[i].h2location = p5.Vector.lerp(obj1.h2array[i], obj2.h2array[i], factor)
+  }
+}
+
+/////
+function currCholder(centroid, jsonArray) { // current Compartment holder to save on buffer
+  this.id = currC(centroid, jsonArray, 0)
+  this.lower = currC(centroid, jsonArray, 1)
+  this.upper = currC(centroid, jsonArray, 2)
+}
+
+function currC(centroid, jsonArray, returnmode) { // current compartment, returns currC id or currC lowerrange or currC upperrange
+  const kcAmm = knotspace.length - 1 // |  |  | -> 3 knots means only 2 compartments
+  const range = maxHz - minHz // range of whistling
+  const kcSize = range / (knotspace.length - 1) // knot compartment size
+  let currentkCmin
+  let currentkCmax
+  if (returnmode == 0) {
+    for (i = 0; i < kcAmm; i++) { // return i if centroid is in between min&maxHz values for compartment[i]
+      currentkCmin = minHz + (kcSize * i)
+      currentkCmax = minHz + (kcSize * (i + 1))
+      if (isBetween(centroid, currentkCmin, currentkCmax, true)) { // This shit was crashing it => old: Adding +1 so that include range doesn't overlap w/ previous
+        return i
       }
-      vel *= 1.1 // accelerate vel exponentially
-      if (near(bpointArray[5].location.y,
-          json[5].ly + ((windowHeight / 2) - json[5].cy) + json[5].offy,
-          .05)) { // if near to looseknot by .05, reset vel
-        vel = .0001
-      }
-    } else { // consoleprint the number of bpoints required
-      //print("Loose knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(json).length)
     }
-  }
-
-  function near(num1, num2, factor) {
-    return (num1 > (num2 - factor) && num1 < (num2 + factor))
-  }
-
-  function deleteBpoint() {
-    bpointArray.splice(activeBezier.index, 1) // in position index, delete 1 element
-    for (let i = 0; i < bpointArray.length; i++) { //updatinng indexes
-      bpointArray[i].index = i
-    }
-  }
-
-  function keyPressed() {
-    if (keyCode === 86) { //v
-      activeBezier.isCorner = !activeBezier.isCorner
-    }
-    if (keyCode === 88) { // x
-      [activeBezier.h1location, activeBezier.h2location] = [activeBezier.h2location, activeBezier.h1location] // Switches handle locations
-    }
-    if (keyCode === 90) { //z
-      createBpoint()
-    }
-    if (keyCode === 65) { //a
-      deleteBpoint()
-    }
-    if (keyCode === 68) { //d
-      drawControls = !drawControls
-    }
-    if (keyCode === 67) { //c
-      activeBezier.isAsymmetrical = !activeBezier.isAsymmetrical // locked handle but asym lenghts is not defined yet
-    }
-    if (keyCode === 83) { //s
-      finalBeziers = [] // empty first
-      for (let i = 0; i < bpointArray.length; i++) { // filling finalBeziers array with Bpointpos objects (simplified Bpoints)
-        finalBeziers.push(new Bpointpos(bpointArray[i].index, bpointArray[i].isBase,
-          bpointArray[i].location.x, bpointArray[i].location.y,
-          bpointArray[i].h1location.x, bpointArray[i].h1location.y,
-          bpointArray[i].h2location.x, bpointArray[i].h2location.y))
-      }
-      downloadObjectAsJson(finalBeziers, "knotJSON" + jsonCount)
-      jsonCount++
-      print("saved json")
-    }
-    if (keyCode === 84) { // t
-      updatebpointArray(knotspace[0]) // immediately change location for dots to specified knot
-    }
-    if (keyCode === 48) { // normal 0
-      averagingCentroids = !averagingCentroids // avg or raw centroid?
-    }
-    if (keyCode === 76) { // l
-      looseknot = !looseknot // does the knot return to loose?
-    }
-  }
-
-  function Bpointpos(index, basestatus, posx, posy, h1posx, h1posy, h2posx, h2posy) { // simplified Bpoints for saving in json
-    this.index = index
-    this.isBase = basestatus
-    this.offx = (windowWidth / 2) - pageCenter.x //saving the offset, the diff between center of bases and center of page
-    this.offy = (windowHeight / 2) - pageCenter.y
-    this.cx = (windowWidth / 2) // saving the current canvas size
-    this.cy = (windowHeight / 2)
-    this.lx = posx
-    this.ly = posy
-    this.h1x = h1posx
-    this.h1y = h1posy
-    this.h2x = h2posx
-    this.h2y = h2posy
-  }
-
-  function mousePressed() { //Activate audio, Points activate with a click before being able to drag them
-    for (let i = 0; i < bpointArray.length; i++) {
-      if (pointClickable(bpointArray[i].location, bpointArray[i].bpointsize)) {
-        activeBpoint = bpointArray[i].location
-        prevactiveBezier = activeBezier
-        activeBezier = bpointArray[i]
-        print(activeBezier.index)
-      } else if (pointClickable(bpointArray[i].h1location, bpointArray[i].hsize)) {
-        activeBpoint = bpointArray[i].h1location
-      } else if (pointClickable(bpointArray[i].h2location, bpointArray[i].hsize)) {
-        activeBpoint = bpointArray[i].h2location
+  } else if (returnmode == 1) {
+    for (i = 0; i < kcAmm; i++) { // return currentkCmin
+      currentkCmin = minHz + (kcSize * i)
+      currentkCmax = minHz + (kcSize * (i + 1))
+      if (isBetween(centroid, currentkCmin, currentkCmax, true)) {
+        return currentkCmin
       }
     }
-    if (!permissiongiven) {
-      permissiongiven = true // variable so that this only is defined once
-      userStartAudio() // p5 sound is initialized
-      whistlerr.detect(() => analyzeSound()) // Whistlerr needs to recieve a function created right here
+  } else if (returnmode == 2) {
+    for (i = 0; i < kcAmm; i++) { // return currentkCmax
+      currentkCmin = minHz + (kcSize * i)
+      currentkCmax = minHz + (kcSize * (i + 1))
+      if (isBetween(centroid, currentkCmin, currentkCmax, true)) {
+        return currentkCmax
+      }
     }
   }
+}
 
-  function mouseDragged() {
-    for (let i = 0; i < bpointArray.length; i++) {
-      bpointArray[i].drag();
+function isBetween(num, rangelower, rangeupper, inclusive) { // is a number between these two?
+  let min = Math.min(rangelower, rangeupper)
+  let max = Math.max(rangelower, rangeupper)
+  return inclusive ? num >= min && num <= max : num > min && num < max
+}
+
+function interpolatetoLooseKnot(json) { // advance every frame towards loosejson position
+  let loctarget = createVector()
+  let h1target = createVector()
+  let h2target = createVector()
+  if (bpointArray.length == Object.keys(loosejson).length) {
+    for (i = 0; i < bpointArray.length; i++) {
+      loctarget.x = json[i].lx + ((windowWidth / 2) - json[i].cx) + json[i].offx
+      loctarget.y = json[i].ly + ((windowHeight / 2) - json[i].cy) + json[i].offy
+      h1target.x = json[i].h1x + ((windowWidth / 2) - json[i].cx) + json[i].offx
+      h1target.y = json[i].h1y + ((windowHeight / 2) - json[i].cy) + json[i].offy
+      h2target.x = json[i].h2x + ((windowWidth / 2) - json[i].cx) + json[i].offx
+      h2target.y = json[i].h2y + ((windowHeight / 2) - json[i].cy) + json[i].offy
+
+      bpointArray[i].location = p5.Vector.lerp(bpointArray[i].location, loctarget, vel)
+      bpointArray[i].h1location = p5.Vector.lerp(bpointArray[i].h1location, h1target, vel)
+      bpointArray[i].h2location = p5.Vector.lerp(bpointArray[i].h2location, h2target, vel)
     }
-    return false; // prevent default
+    vel *= 1.1 // accelerate vel exponentially
+    if (near(bpointArray[5].location.y,
+        json[5].ly + ((windowHeight / 2) - json[5].cy) + json[5].offy,
+        .05)) { // if near to looseknot by .05, reset vel
+      vel = .0001
+    }
+  } else { // consoleprint the number of bpoints required
+    //print("Loose knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(json).length)
   }
+}
 
-  function downloadObjectAsJson(exportObj, exportName) {
-    var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 4));
-    var downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", exportName + ".json");
-    document.body.appendChild(downloadAnchorNode); // required for firefox
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+function near(num1, num2, factor) {
+  return (num1 > (num2 - factor) && num1 < (num2 + factor))
+}
+
+function deleteBpoint() {
+  bpointArray.splice(activeBezier.index, 1) // in position index, delete 1 element
+  for (let i = 0; i < bpointArray.length; i++) { //updatinng indexes
+    bpointArray[i].index = i
   }
+}
 
-  function windowResized() {
-    //if (height < (width * 1.4)) {
-    resizeCanvas(windowWidth, windowHeight)
-    sourceCanvas = createGraphics(windowWidth, windowHeight - 4) // reinitializing sourceCanvas graphics so that shader1 is updated to new windowSize
-    //  }
+function keyPressed() {
+  if (keyCode === 86) { //v
+    activeBezier.isCorner = !activeBezier.isCorner
   }
+  if (keyCode === 88) { // x
+    [activeBezier.h1location, activeBezier.h2location] = [activeBezier.h2location, activeBezier.h1location] // Switches handle locations
+  }
+  if (keyCode === 90) { //z
+    createBpoint()
+  }
+  if (keyCode === 65) { //a
+    deleteBpoint()
+  }
+  if (keyCode === 68) { //d
+    drawControls = !drawControls
+  }
+  if (keyCode === 67) { //c
+    activeBezier.isAsymmetrical = !activeBezier.isAsymmetrical // locked handle but asym lenghts is not defined yet
+  }
+  if (keyCode === 83) { //s
+    finalBeziers = [] // empty first
+    for (let i = 0; i < bpointArray.length; i++) { // filling finalBeziers array with Bpointpos objects (simplified Bpoints)
+      finalBeziers.push(new Bpointpos(bpointArray[i].index, bpointArray[i].isBase,
+        bpointArray[i].location.x, bpointArray[i].location.y,
+        bpointArray[i].h1location.x, bpointArray[i].h1location.y,
+        bpointArray[i].h2location.x, bpointArray[i].h2location.y))
+    }
+    downloadObjectAsJson(finalBeziers, "knotJSON" + jsonCount)
+    jsonCount++
+    print("saved json")
+  }
+  if (keyCode === 84) { // t
+    updatebpointArray(knotspace[0]) // immediately change location for dots to specified knot
+  }
+  if (keyCode === 48) { // normal 0
+    averagingCentroids = !averagingCentroids // avg or raw centroid?
+  }
+  if (keyCode === 76) { // l
+    looseknot = !looseknot // does the knot return to loose?
+  }
+}
 
-  // function drawCurve(curve, offset) { // other drawfunction in ctx Canvas
-  //   stroke(50)
-  //   strokeWeight(1)
-  //   offset = offset || {
-  //     x: 0,
-  //     y: 0
-  //   };
-  //   var ox = offset.x;
-  //   var oy = offset.y;
-  //   ctx.beginPath();
-  //   var p = curve.points,
-  //     i;
-  //   ctx.moveTo(p[0].x + ox, p[0].y + oy);
-  //   if (p.length === 3) {
-  //     ctx.quadraticCurveTo(
-  //       p[1].x + ox, p[1].y + oy,
-  //       p[2].x + ox, p[2].y + oy
-  //     );
-  //   }
-  //   if (p.length === 4) {
-  //     ctx.bezierCurveTo(
-  //       p[1].x + ox, p[1].y + oy,
-  //       p[2].x + ox, p[2].y + oy,
-  //       p[3].x + ox, p[3].y + oy
-  //     );
-  //   }
-  //   ctx.stroke();
-  //   ctx.closePath();
-  // }
+function Bpointpos(index, basestatus, posx, posy, h1posx, h1posy, h2posx, h2posy) { // simplified Bpoints for saving in json
+  this.index = index
+  this.isBase = basestatus
+  this.offx = (windowWidth / 2) - pageCenter.x //saving the offset, the diff between center of bases and center of page
+  this.offy = (windowHeight / 2) - pageCenter.y
+  this.cx = (windowWidth / 2) // saving the current canvas size
+  this.cy = (windowHeight / 2)
+  this.lx = posx
+  this.ly = posy
+  this.h1x = h1posx
+  this.h1y = h1posy
+  this.h2x = h2posx
+  this.h2y = h2posy
+}
 
-  // Shader by Pierre MARZIN
-  var frag = `
+function mousePressed() { //Activate audio, Points activate with a click before being able to drag them
+  for (let i = 0; i < bpointArray.length; i++) {
+    if (pointClickable(bpointArray[i].location, bpointArray[i].bpointsize)) {
+      activeBpoint = bpointArray[i].location
+      prevactiveBezier = activeBezier
+      activeBezier = bpointArray[i]
+      print(activeBezier.index)
+    } else if (pointClickable(bpointArray[i].h1location, bpointArray[i].hsize)) {
+      activeBpoint = bpointArray[i].h1location
+    } else if (pointClickable(bpointArray[i].h2location, bpointArray[i].hsize)) {
+      activeBpoint = bpointArray[i].h2location
+    }
+  }
+  if (!permissiongiven) {
+    permissiongiven = true // variable so that this only is defined once
+    userStartAudio() // p5 sound is initialized
+    whistlerr.detect(() => analyzeSound()) // Whistlerr needs to recieve a function created right here
+  }
+}
+
+function mouseDragged() {
+  for (let i = 0; i < bpointArray.length; i++) {
+    bpointArray[i].drag();
+  }
+  return false; // prevent default
+}
+
+function downloadObjectAsJson(exportObj, exportName) {
+  var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 4));
+  var downloadAnchorNode = document.createElement('a');
+  downloadAnchorNode.setAttribute("href", dataStr);
+  downloadAnchorNode.setAttribute("download", exportName + ".json");
+  document.body.appendChild(downloadAnchorNode); // required for firefox
+  downloadAnchorNode.click();
+  downloadAnchorNode.remove();
+}
+
+function windowResized() {
+  //if (height < (width * 1.4)) {
+  resizeCanvas(windowWidth, windowHeight)
+  sourceCanvas = createGraphics(windowWidth, windowHeight - 4) // reinitializing sourceCanvas graphics so that shader1 is updated to new windowSize
+  //  }
+}
+
+// function drawCurve(curve, offset) { // other drawfunction in ctx Canvas
+//   stroke(50)
+//   strokeWeight(1)
+//   offset = offset || {
+//     x: 0,
+//     y: 0
+//   };
+//   var ox = offset.x;
+//   var oy = offset.y;
+//   ctx.beginPath();
+//   var p = curve.points,
+//     i;
+//   ctx.moveTo(p[0].x + ox, p[0].y + oy);
+//   if (p.length === 3) {
+//     ctx.quadraticCurveTo(
+//       p[1].x + ox, p[1].y + oy,
+//       p[2].x + ox, p[2].y + oy
+//     );
+//   }
+//   if (p.length === 4) {
+//     ctx.bezierCurveTo(
+//       p[1].x + ox, p[1].y + oy,
+//       p[2].x + ox, p[2].y + oy,
+//       p[3].x + ox, p[3].y + oy
+//     );
+//   }
+//   ctx.stroke();
+//   ctx.closePath();
+// }
+
+// Shader by Pierre MARZIN
+var frag = `
 
 #ifdef GL_ES
 precision mediump float;
@@ -1245,7 +1381,7 @@ void main() {
 }
 
 `
-  var vert = `
+var vert = `
 //standard vertex shader
 #ifdef GL_ES
       precision highp float;
@@ -1279,8 +1415,8 @@ void main() {
     }
 `;
 
-  /// Shader 2 blurring hypnagogias
-  const frag1 = `
+/// Shader 2 blurring hypnagogias
+const frag1 = `
 	#ifdef GL_ES
 	precision mediump float;
 	#endif
@@ -1456,7 +1592,7 @@ vec3 blur(sampler2D sp, vec2 uv, vec2 scale) {
 	}
 `
 
-  const vert1 = `
+const vert1 = `
 // vert file and comments from adam ferriss
 // https://github.com/aferriss/p5jsShaderExamples
 
