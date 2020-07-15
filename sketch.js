@@ -137,7 +137,6 @@ function setup() {
   for (let i = 0; i < 20; i++) { // making a 10 frame buffer for clamping pastvolumes
     clampedvBuffer.push(0)
   }
-
   for (let i = 0; i < 2; i++) { // making a 2 frame buffer for centroids
     currCidBuffer.push(0)
   }
@@ -228,8 +227,8 @@ function draw() {
       fill(255)
       textSize(15)
       //text(round(spectralCentroid) + ' Hz', width / 2, 100)
-      text('Vol:' + map(sound.getLevel(), .0006, .02, 0, 3), width / 2, 100)
-      text('Hz:' + map(spectralCentroid, minHz, maxHz, 0, 3), width / 2, 50)
+      // text('Vol:' + map(sound.getLevel(), .0006, .02, 0, 3), width / 2, 100)
+      // text('Hz:' + map(spectralCentroid, minHz, maxHz, 0, 3), width / 2, 50)
       // centroids.push(spectralCentroid) //push Centroid to average it with previous
       // centroids.shift()
       // volumeBuffer.push(sound.getLevel()) //push Volume to average it with previous
@@ -648,7 +647,7 @@ function interpolatebpointArray(jsonArray) { //add the possibility to undulate i
     print("Saved knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(jsonArray[0]).length)
   }
 }
-/////
+/////2D
 function interpolatebpointArray2D(jsonArray) { // interpolate2D without sq clamping
   let vol = map(sound.getLevel(), .0006, .02, 0, 3)
   let hz = map(spectralCentroid, minHz, maxHz, 0, 3)
@@ -822,9 +821,9 @@ function interpolatebpointArray2D(jsonArray) { // interpolate2D without sq clamp
 function sqInterpolatebpointArray2D(jsonArray) {
   centroids.push(map(spectralCentroid, minHz, maxHz, 0, 3)) //push Centroid to average it with previous
   centroids.shift()
-  clampedhBuffer.push(centroids[10]) // We discard the last 11 volume frames (because whistling takes time deactivating)
+  clampedhBuffer.push(centroids[10]) // We discard the last 11 centroid frames (because of whistling detect buffer)
   clampedhBuffer.shift()
-  let avgHz = clampedhBuffer.reduce((a, b) => a + b, 0) / clampedhBuffer.length
+  let avgHz = clampedhBuffer.reduce((a, b) => a + b, 0) / clampedhBuffer.length // we avg clamped 10 frames
   let hz = avgHz // pass avgHz to hz
   if (hz > 2){ // if hz is high we must map volume much lower
     volumeBuffer.push(map(sound.getLevel(), 0, .012, 0, 3))
@@ -836,16 +835,17 @@ function sqInterpolatebpointArray2D(jsonArray) {
     volumeBuffer.push(map(sound.getLevel(), .019, .025, 2, 3))
   }
   volumeBuffer.shift()
-  clampedvBuffer.push(volumeBuffer[20]) // We discard the last 11 volume frames (because whistling takes time deactivating)
+  clampedvBuffer.push(volumeBuffer[20]) // We discard the last 11 volume frames (because of whistling detect buffer)
   clampedvBuffer.shift()
-  let avgVol = clampedvBuffer.reduce((a, b) => a + b, 0) / clampedvBuffer.length
+  let avgVol = clampedvBuffer.reduce((a, b) => a + b, 0) / clampedvBuffer.length // we avg clamped 20 frames
   let vol = avgVol // pass avgVol from clampedvBuffer to vol
   // other attempts //
   //let vol = volumeBuffer[0] // w/o averaging
   //let hz = centroids[0] // w/o averaging
   // let vol = map(volS.value(), 0, 500, -.2, 2.2) // this is for use w/ slider
   // let hz = map(hzS.value(), 0, 500, -.2, 3.2)
-  print('v:' + volumeBuffer[30], 'vB:' + vol, 'hz:' + centroids[20], 'hzB:' + hz)
+  print('v:' + ((round(volumeBuffer[30]*1000))/1000) + '|' + ((round(vol*1000))/1000),
+  'hz:' + ((round(centroids[20]*1000))/1000)+'|' + ((round(hz*1000))/1000)) // debug my life
   let ks // Knotspace value
   let json1 // json holders
   let json2
@@ -1116,6 +1116,7 @@ function currC(centroid, jsonArray, returnmode) { // current compartment, return
   }
 }
 
+/////
 function isBetween(num, rangelower, rangeupper, inclusive) { // is a number between these two?
   let min = Math.min(rangelower, rangeupper)
   let max = Math.max(rangelower, rangeupper)
