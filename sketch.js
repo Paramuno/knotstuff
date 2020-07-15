@@ -13,9 +13,11 @@ let pageCenter // offset for centering
 
 // let knotspaceX // Slider for position in whislte range
 let knotspace = [] // Array which contains all saved JSONs
-let knotspaceextra = []
+let knotspaceextra = [] // extraknots
+let testknots = [] // 2D array of knots
 let vel = .00001 // default initial velocity for interpolating to looseknot
-let looseknot = false // does the knot return to loose all the time?
+let looseknot = true // does the knot return to loose all the time?
+let loosening = true
 let permissiongiven = false
 let whistling = false // Is whistling detected?
 let whistlingArray = [] // A buffer array to smooth out whistling signals
@@ -30,8 +32,9 @@ let currCidBuffer = [] // centroid Buffer (may be unnecessary now that currC is 
 let spectrum // fft analyze product
 let spectralCentroid // centroid in Hz
 let centroids = [] // A centroid buffer
-let averagingCentroids = true // smoothing Centroid by averaging with buffer
-
+let clampedhBuffer = []
+let volumeBuffer = [] // A volume buffer
+let clampedvBuffer = []
 let chosenWordBuffer // A buffer to save the last chosen word and display it
 const knotsNum = 4 // Number of available knot JSONs
 
@@ -44,8 +47,6 @@ let tyRwalk = 0
 
 //text variables
 let iStrFound = [] //Array with the indexes of found strings
-
-let testknots = []
 
 function preload() {
   for (let i = 0; i < knotsNum; i++) { // initialize all available knots
@@ -121,12 +122,22 @@ function setup() {
   sound.connect(fft)
   sound.amp(.05)
   fft.smooth()
-  for (let i = 0; i < 8; i++) { // 8 frames of non whistling won't stop whistlingswitch
+  for (let i = 0; i < 12; i++) { // 20 frames of non whistling won't stop whistlingswitch
     whistlingArray.push(0)
   }
-  for (let i = 0; i < 5; i++) { // making a 5 frame buffer for centroids
+  for (let i = 0; i < 21; i++) { // making a 20 frame buffer for centroids
     centroids.push(0)
   }
+  for (let i = 0; i < 10; i++) { // making a 10 frame buffer for clamping centroids
+    clampedhBuffer.push(0)
+  }
+  for (let i = 0; i < 31; i++) { // making a 31 frame buffer for pastvolumes
+    volumeBuffer.push(0)
+  }
+  for (let i = 0; i < 20; i++) { // making a 10 frame buffer for clamping pastvolumes
+    clampedvBuffer.push(0)
+  }
+
   for (let i = 0; i < 2; i++) { // making a 2 frame buffer for centroids
     currCidBuffer.push(0)
   }
@@ -134,12 +145,13 @@ function setup() {
 
   init24knots() // initializing all knots for immediate functionality
 
-  volS = createSlider(0, 500, 0, 0)
-  volS.position(10, 10, 0, 0)
-  volS.style('width', '800px')
-  hzS = createSlider(0, 500, 0, 0)
-  hzS.position(10, 50, 0, 0)
-  hzS.style('width', '800px')
+  // Volume and Hz sliders
+  // volS = createSlider(0, 500, 0, 0)
+  // volS.position(10, 10, 0, 0)
+  // volS.style('width', '800px')
+  // hzS = createSlider(0, 500, 0, 0)
+  // hzS.position(10, 50, 0, 0)
+  // hzS.style('width', '800px')
 }
 
 function init24knots() {
@@ -202,6 +214,7 @@ function draw() {
     for (let w of whistlingArray) { // Checking if there's any whistling in the buffer
       if (w > 0) {
         whistling = true
+
       }
     }
     whistlingArray.push(0) // cleaning Buffer
@@ -209,25 +222,29 @@ function draw() {
     if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
       drawShader1() // after checking for whistling, drawShader1
     }
-    iiInterpolatebpointArray2D(testknots)
-    if (whistling) {
+    if (whistling && !loosening) {
       spectrum = fft.analyze()
       spectralCentroid = fft.getCentroid()
-      fill(200)
+      fill(255)
+      textSize(15)
       //text(round(spectralCentroid) + ' Hz', width / 2, 100)
       text('Vol:' + map(sound.getLevel(), .0006, .02, 0, 3), width / 2, 100)
       text('Hz:' + map(spectralCentroid, minHz, maxHz, 0, 3), width / 2, 50)
-      centroids.push(spectralCentroid) //push Centroid to average it with previous
-      centroids.shift()
+      // centroids.push(spectralCentroid) //push Centroid to average it with previous
+      // centroids.shift()
+      // volumeBuffer.push(sound.getLevel()) //push Volume to average it with previous
+      // volumeBuffer.shift()
       //interpolatebpointArray(knotspace)
       //interpolatebpointArray2D(testknots)
-      //drawKeywords(true, chooseKeywords()) // drawKeywords(whistling?)
+      sqInterpolatebpointArray2D(testknots)
+      //drawKeywords(true, chooseKeywords()) // drawKeywords(whistling  ?)
       whistling = false // reset whistling
-    } else if (looseknot) {
+    } else if (looseknot) { // if lknot active
       interpolatetoLooseKnot(loosejson) // interpolate until the knot is loose
       //drawKeywords(false, chosenWordBuffer) // use the last randomly chosen word
     }
     //drawFoundtext()
+    //print('amp:' + sound.getLevel())
   }
 }
 
@@ -398,7 +415,6 @@ function drawBezier() {
 
 function updatebpointArray(json) {
   if (bpointArray.length == Object.keys(json).length) {
-    print("bby")
     for (i = 0; i < bpointArray.length; i++) { // replacing bpoint params, addingcenter and window offset to positions
       bpointArray[i].location.x = json[i].lx + ((windowWidth / 2) - json[i].cx) + json[i].offx
       bpointArray[i].location.y = json[i].ly + ((windowHeight / 2) - json[i].cy) + json[i].offy
@@ -563,14 +579,8 @@ function compensateHandle(h1isfirst) { // reducing the handle length to compensa
 }
 
 function interpolatebpointArray(jsonArray) { //add the possibility to undulate in the static points
-  //let ksX = map(knotspaceX.value(), 0, 100, 0, 1) // this is for the slider
   let ks // defines the lerp factor between active jsons
   let averageCentroid = centroids.reduce((a, b) => a + b, 0) / centroids.length // averaging array contents
-  // if (averagingCentroids) { // this was for choosing between avg and raw centroids
-  //ks = map(averageCentroid, minHz, maxHz, 0, 1, true) // avg
-  // } else {
-  //   ks = map(spectralCentroid, minHz, maxHz, 0, 1, true) // raw
-  // }
   let locorigin = createVector()
   let h1origin = createVector()
   let h2origin = createVector()
@@ -639,7 +649,7 @@ function interpolatebpointArray(jsonArray) { //add the possibility to undulate i
   }
 }
 /////
-function interpolatebpointArray2D(jsonArray) {
+function interpolatebpointArray2D(jsonArray) { // interpolate2D without sq clamping
   let vol = map(sound.getLevel(), .0006, .02, 0, 3)
   let hz = map(spectralCentroid, minHz, maxHz, 0, 3)
   let ks // Knotspace value
@@ -809,15 +819,33 @@ function interpolatebpointArray2D(jsonArray) {
   }
 }
 
-function iiInterpolatebpointArray2D(jsonArray) {
-  //let vol = map(sound.getLevel(), .0006, .02, 0, 3)
-  //let hz = map(spectralCentroid, minHz, maxHz, 0, 3)
-  let vol = map(volS.value(), 0, 500, -.2, 2.2)
-  let hz = map(hzS.value(), 0, 500, -.2, 3.2)
-  fill(255)
-  textSize(15)
-  text('vol' + vol, width * .7, 35)
-  text('hz' + hz, width * .7, 85)
+function sqInterpolatebpointArray2D(jsonArray) {
+  centroids.push(map(spectralCentroid, minHz, maxHz, 0, 3)) //push Centroid to average it with previous
+  centroids.shift()
+  clampedhBuffer.push(centroids[10]) // We discard the last 11 volume frames (because whistling takes time deactivating)
+  clampedhBuffer.shift()
+  let avgHz = clampedhBuffer.reduce((a, b) => a + b, 0) / clampedhBuffer.length
+  let hz = avgHz // pass avgHz to hz
+  if (hz > 2){ // if hz is high we must map volume much lower
+    volumeBuffer.push(map(sound.getLevel(), 0, .012, 0, 3))
+  } else if (sound.getLevel() < .012) { // this shifts the proportions of each volume compartment
+    volumeBuffer.push(map(sound.getLevel(), 0, .012, 0, 1))
+  } else if (sound.getLevel() < .019) { // this shifts the proportions of each volume compartment
+    volumeBuffer.push(map(sound.getLevel(), .012, .019, 1, 2))
+  } else { // this shifts the proportions of each volume compartment
+    volumeBuffer.push(map(sound.getLevel(), .019, .025, 2, 3))
+  }
+  volumeBuffer.shift()
+  clampedvBuffer.push(volumeBuffer[20]) // We discard the last 11 volume frames (because whistling takes time deactivating)
+  clampedvBuffer.shift()
+  let avgVol = clampedvBuffer.reduce((a, b) => a + b, 0) / clampedvBuffer.length
+  let vol = avgVol // pass avgVol from clampedvBuffer to vol
+  // other attempts //
+  //let vol = volumeBuffer[0] // w/o averaging
+  //let hz = centroids[0] // w/o averaging
+  // let vol = map(volS.value(), 0, 500, -.2, 2.2) // this is for use w/ slider
+  // let hz = map(hzS.value(), 0, 500, -.2, 3.2)
+  print('v:' + volumeBuffer[30], 'vB:' + vol, 'hz:' + centroids[20], 'hzB:' + hz)
   let ks // Knotspace value
   let json1 // json holders
   let json2
@@ -825,7 +853,7 @@ function iiInterpolatebpointArray2D(jsonArray) {
   let json4
   let j1lerpj2 //objects holding lerped jsons for finallerp
   let j3lerpj4
-  let sq = .2 // squaresize
+  let sq = .2 // squaresize for easier landing on a knot
 
   if (hz < sq) {
     updatebpointArray(jsonArray[0])
@@ -1048,7 +1076,6 @@ function finalLerp(obj1, obj2, factor) {
     bpointArray[i].h2location = p5.Vector.lerp(obj1.h2array[i], obj2.h2array[i], factor)
   }
 }
-
 /////
 function currCholder(centroid, jsonArray) { // current Compartment holder to save on buffer
   this.id = currC(centroid, jsonArray, 0)
@@ -1107,7 +1134,6 @@ function interpolatetoLooseKnot(json) { // advance every frame towards loosejson
       h1target.y = json[i].h1y + ((windowHeight / 2) - json[i].cy) + json[i].offy
       h2target.x = json[i].h2x + ((windowWidth / 2) - json[i].cx) + json[i].offx
       h2target.y = json[i].h2y + ((windowHeight / 2) - json[i].cy) + json[i].offy
-
       bpointArray[i].location = p5.Vector.lerp(bpointArray[i].location, loctarget, vel)
       bpointArray[i].h1location = p5.Vector.lerp(bpointArray[i].h1location, h1target, vel)
       bpointArray[i].h2location = p5.Vector.lerp(bpointArray[i].h2location, h2target, vel)
@@ -1117,9 +1143,17 @@ function interpolatetoLooseKnot(json) { // advance every frame towards loosejson
         json[5].ly + ((windowHeight / 2) - json[5].cy) + json[5].offy,
         .05)) { // if near to looseknot by .05, reset vel
       vel = .0001
+      loosening = false
+      for (let i = 0; i < 8; i++) {
+        whistlingArray[i] = 0
+      }
+      whistling = false
+    } else {
+      loosening = true
+      whistling = false
     }
   } else { // consoleprint the number of bpoints required
-    //print("Loose knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(json).length)
+    print("Loose knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(json).length)
   }
 }
 
@@ -1167,9 +1201,7 @@ function keyPressed() {
   }
   if (keyCode === 84) { // t
     updatebpointArray(knotspace[0]) // immediately change location for dots to specified knot
-  }
-  if (keyCode === 48) { // normal 0
-    averagingCentroids = !averagingCentroids // avg or raw centroid?
+    print("bby")
   }
   if (keyCode === 76) { // l
     looseknot = !looseknot // does the knot return to loose?
