@@ -24,6 +24,7 @@ let whistlingArray = [] // A buffer array to smooth out whistling signals
 const minHz = 550 // defined whistling range in Hz
 const maxHz = 2000
 let currCidBuffer = [] // centroid Buffer (may be unnecessary now that currC is synchronized)
+let zone2D = 0
 
 // let tempBezier // tempBezier for comparison, the tempBezier is drawn with a ctx draw function
 // let canvas
@@ -237,12 +238,14 @@ function draw() {
       //interpolatebpointArray2D(testknots)
       sqInterpolatebpointArray2D(testknots)
       //drawKeywords(true, chooseKeywords()) // drawKeywords(whistling  ?)
+      drawKeywords2D(true, chooseKeywords2D())
       whistling = false // reset whistling
     } else if (looseknot) { // if lknot active
       interpolatetoLooseKnot(loosejson) // interpolate until the knot is loose
-      //drawKeywords(false, chosenWordBuffer) // use the last randomly chosen word
+      drawKeywords2D(false, chosenWordBuffer) // use the last randomly chosen word
     }
     //drawFoundtext()
+    drawFoundtext2D()
     //print('amp:' + sound.getLevel())
   }
 }
@@ -450,6 +453,15 @@ function chooseKeywords() {
   return choice
 }
 
+function chooseKeywords2D() {
+  let choice
+  if (zone2D != undefined) { //if currC is defined, choose a random between 0 and the length of currC keyword array
+    choice = floor(random(keyWords[zone2D].s.length)) // choose a random id between the available ids in the current Compartment keyword array
+    //print(keyWords[zone2D].s.length,choice)
+  }
+  return choice
+}
+
 function drawFloaters(floater, seedOffset, index) { // drawing them floaters
   push()
   let floX = noise(seed1 + seedOffset);
@@ -492,6 +504,27 @@ function drawKeywords(arewewhistling, choose) {
   }
 }
 
+function drawKeywords2D(arewewhistling, choose) {
+  // Choose randomly between set depending on currComparment and display them
+  // Display also all texts where that word is found, let the user choose one
+  if (choose != undefined) { // safety feature
+    chosenWordBuffer = choose
+  }
+  textSize(height/30)
+  fill(200)
+  noStroke()
+  textAlign(CENTER)
+  if (zone2D != undefined) { //if currC is defined, draw chosen keyword, else draw the buffer keyword
+    if (arewewhistling) {
+      text(keyWords[zone2D].s[choose], width / 2, height * .15)
+      //sourceCanvas.fill(floor(random(255)),floor(random(255)),floor(random(255)))
+      //sourceCanvas.text(keyWords[currC(spectralCentroid, knotspace, 0)].s[choose], width / 2, height * .2)
+    } else if (chosenWordBuffer != undefined) {
+      text(keyWords[zone2D].s[chosenWordBuffer], width / 2, height * .15)
+    }
+  }
+}
+
 function drawFoundtext() {
   noStroke()
   textSize(height / 60)
@@ -510,6 +543,21 @@ function drawFoundtext() {
     getStrIndex(textArray[1], keyWords[knotsNum - 2].s[chosenWordBuffer]) // Same as drawKeywords, use last set on the keyWord Array, get the index of the chosenWord
     text(textArray[1].slice(iStrFound[0] - 20, iStrFound[0] + keyWords[knotsNum - 2].s[chosenWordBuffer].length + 20), // Slice it from text
       width * .5, height * .8)
+  }
+  textStyle(NORMAL)
+}
+
+function drawFoundtext2D() {
+  let contextsize = 50
+  noStroke()
+  textSize(height / 60)
+  textStyle(ITALIC)
+  let currKeyword
+  if ((chosenWordBuffer != undefined) && (zone2D != undefined)) { //if currKeyword is initialized and defined
+    currKeyword = keyWords[zone2D].s[chosenWordBuffer] // defined currKeyword as actual currC keyword
+    getStrIndex(textArray[1], currKeyword) // get its index in text string
+    text(textArray[1].slice(iStrFound[0] - contextsize, iStrFound[0] + currKeyword.length + contextsize), // Slice it and surrounding 20 strings to draw them
+      width * .5, height * .85)
   }
   textStyle(NORMAL)
 }
@@ -818,7 +866,7 @@ function interpolatebpointArray2D(jsonArray) { // interpolate2D without sq clamp
   }
 }
 
-function sqInterpolatebpointArray2D(jsonArray) {
+function sqInterpolatebpointArray2D(jsonArray) { //interpolate2D w clamping and zone declaration
   centroids.push(map(spectralCentroid, minHz, maxHz, 0, 3)) //push Centroid to average it with previous
   centroids.shift()
   clampedhBuffer.push(centroids[10]) // We discard the last 11 centroid frames (because of whistling detect buffer)
@@ -844,8 +892,6 @@ function sqInterpolatebpointArray2D(jsonArray) {
   //let hz = centroids[0] // w/o averaging
   // let vol = map(volS.value(), 0, 500, -.2, 2.2) // this is for use w/ slider
   // let hz = map(hzS.value(), 0, 500, -.2, 3.2)
-  print('v:' + ((round(volumeBuffer[30]*1000))/1000) + '|' + ((round(vol*1000))/1000),
-  'hz:' + ((round(centroids[20]*1000))/1000)+'|' + ((round(hz*1000))/1000)) // debug my life
   let ks // Knotspace value
   let json1 // json holders
   let json2
@@ -876,7 +922,8 @@ function sqInterpolatebpointArray2D(jsonArray) {
   } else if ((hz > (3 - sq)) && (vol > (2 - sq))) {
     updatebpointArray(jsonArray[9])
   }
-  if (hz <= 1) { // zone 1
+  if (hz <= 1) { // zone 0
+    zone2D = 0
     json1 = jsonArray[0] //
     json2 = jsonArray[0]
     //fill j1 lerp j2 , no need to lerp here
@@ -910,8 +957,9 @@ function sqInterpolatebpointArray2D(jsonArray) {
       ks = map(hz, sq, 1 - sq, 0, 1, true)
       finalLerp(j1lerpj2, j3lerpj4, ks)
     }
-  } else if (hz <= 2) { // zones 234
-    if (vol <= 1) { // zone 2
+  } else if (hz <= 2) { // zones 123
+    if (vol <= 1) { // zone 1
+      zone2D = 1
       json1 = jsonArray[1] //
       json2 = jsonArray[2]
       json3 = jsonArray[4] //
@@ -927,7 +975,8 @@ function sqInterpolatebpointArray2D(jsonArray) {
       //redefine ks in hz
       ks = map(hz, 1 + sq, 2 - sq, 0, 1, true) // map hz, constrainValue true
       finalLerp(j1lerpj2, j3lerpj4, ks)
-    } else if (vol <= 2) { // zone 3
+    } else if (vol <= 2) { // zone 2
+      zone2D = 2
       json1 = jsonArray[2] //
       json2 = jsonArray[3]
       json3 = jsonArray[5] //
@@ -943,7 +992,8 @@ function sqInterpolatebpointArray2D(jsonArray) {
       //redefine ks in hz
       ks = map(hz, 1 + sq, 2 - sq, 0, 1, true) // map hz, constrainValue true
       finalLerp(j1lerpj2, j3lerpj4, ks)
-    } else { // zone 4
+    } else { // zone 3
+      zone2D = 3
       json1 = jsonArray[3] //
       json2 = jsonArray[3]
       json3 = jsonArray[6] //
@@ -971,8 +1021,9 @@ function sqInterpolatebpointArray2D(jsonArray) {
       ks = map(hz, 1 + sq, 2 - sq, 0, 1, true) // map hz, constrainValue true
       finalLerp(j1lerpj2, j3lerpj4, ks)
     }
-  } else { // zones 567
-    if (vol <= 1) { // zone 5
+  } else { // zones 456
+    if (vol <= 1) { // zone 4
+      zone2D = 4
       json1 = jsonArray[4] //
       json2 = jsonArray[5]
       json3 = jsonArray[7] //
@@ -988,7 +1039,8 @@ function sqInterpolatebpointArray2D(jsonArray) {
       //redefine ks in hz
       ks = map(hz, 2 + sq, 3 - sq, 0, 1, true) // map hz, constrainValue true
       finalLerp(j1lerpj2, j3lerpj4, ks)
-    } else if (vol <= 2) { // zone 6
+    } else if (vol <= 2) { // zone 5
+      zone2D = 5
       json1 = jsonArray[5] //
       json2 = jsonArray[6]
       json3 = jsonArray[8] //
@@ -1004,7 +1056,8 @@ function sqInterpolatebpointArray2D(jsonArray) {
       //redefine ks in hz
       ks = map(hz, 2 + sq, 3 - sq, 0, 1, true) // map hz, constrainValue true
       finalLerp(j1lerpj2, j3lerpj4, ks)
-    } else { // zone 7
+    } else { // zone 6
+      zone2D = 6
       json1 = jsonArray[6] //
       json2 = jsonArray[6]
       json3 = jsonArray[9] //
@@ -1033,6 +1086,8 @@ function sqInterpolatebpointArray2D(jsonArray) {
       finalLerp(j1lerpj2, j3lerpj4, ks)
     }
   }
+  print('zone2D:'+zone2D,'v:' + ((round(volumeBuffer[30]*1000))/1000) + '|' + ((round(vol*1000))/1000),
+  'hz:' + ((round(centroids[20]*1000))/1000)+'|' + ((round(hz*1000))/1000)) // debug my life
 }
 
 function resultObj() {
