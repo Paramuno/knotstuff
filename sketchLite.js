@@ -1,19 +1,8 @@
-let drawControls = false // draw bezier controls
-
-let activeBpoint // vector location of activebpoint
-
 let activeBezier // active bezier bpoint object
 let prevactiveBezier
 let bpointArray = []
 let baseArray = [] // array of base bpoint objects
 
-let finalBeziers = [] // array of copied bpoint subobjects for saving
-let jsonCount = 0
-let pageCenter // offset for centering
-
-// let knotspaceX // Slider for position in whislte range
-let knotspace = [] // Array which contains all saved JSONs
-let knotspaceextra = [] // extraknots
 let testknots = [] // 2D array of knots
 let vel = .00001 // default initial velocity for interpolating to looseknot
 let looseknot = true // does the knot return to loose all the time?
@@ -23,12 +12,7 @@ let whistling = false // Is whistling detected?
 let whistlingArray = [] // A buffer array to smooth out whistling signals
 const minHz = 550 // defined whistling range in Hz
 const maxHz = 2000
-let currCidBuffer = [] // centroid Buffer (may be unnecessary now that currC is synchronized)
 let zone2D = 0
-
-// let tempBezier // tempBezier for comparison, the tempBezier is drawn with a ctx draw function
-// let canvas
-// let ctx
 
 let spectrum // fft analyze product
 let spectralCentroid // centroid in Hz
@@ -37,7 +21,6 @@ let clampedhBuffer = []
 let volumeBuffer = [] // A volume buffer
 let clampedvBuffer = []
 let chosenWordBuffer // A buffer to save the last chosen word and display it
-const knotsNum = 4 // Number of available knot JSONs
 
 let floaters = [] // floaters img array
 let floRots = [] // array for rotations of the floaters
@@ -50,12 +33,6 @@ let tyRwalk = 0
 let iStrFound = [] //Array with the indexes of found strings
 
 function preload() {
-  for (let i = 0; i < knotsNum; i++) { // initialize all available knots
-    knotspace.push(loadJSON("data/knotJSON" + i + ".json"))
-  }
-  for (let i = 0; i < 6; i++) { // initialize all available knots
-    knotspaceextra.push(loadJSON("data/extraknot" + i + ".json"))
-  }
   loosejson = loadJSON("data/loosejson.json")
   keyWords = loadJSON("data/WordSets.json")
   for (let i = 0; i < 6; i++) { //initalizing 6 floater bois and pushing random rotations in a matching array
@@ -68,19 +45,16 @@ function preload() {
 }
 
 //Shaders variables
-var gl, noctaves, c;
-let sourceCanvas
+let gl, noctaves, c, sourceCanvas
 
 function setup() {
-  //createCanvas(windowWidth, windowHeight - 4);
-  ///
   createCanvas(windowWidth, windowHeight - 4)
   texShader = createGraphics(windowWidth, windowHeight - 4, WEBGL)
   texShader1 = createGraphics(windowWidth, windowHeight - 4, WEBGL)
   sourceCanvas = createGraphics(windowWidth, windowHeight - 4) // shader 1 needs a canvas to draw pixels from, current canvas effect would be too ugly so we make an empty one
   gl = texShader.canvas.getContext('webgl')
   gl.disable(gl.DEPTH_TEST)
-  noctaves = 5; // noise octaves def5
+  noctaves = 5 // noise octaves def5
   c = []
   for (var i = 0; i < 22; i++) {
     c[i] = random(-5, 5); // blob matrix
@@ -94,29 +68,16 @@ function setup() {
   sourceCanvas.background(0)
   ///
   angleMode(DEGREES) // for the floaters rotations
-
-  getAudioContext().suspend();
-  // canvas = document.getElementById("defaultCanvas0") // initializing drawcanvas
-  // ctx = canvas.getContext("2d")
-  //background(240);
-  noStroke();
-  let cw = (width / 2)
-  let ch = (height / 2)
+  getAudioContext().suspend()
+  noStroke()
+  let cw = (width / 2), ch = (height / 2)
   bpointArray.push(new Bpoint(true, createVector(cw - 200, ch - 50), createVector(cw - 125, ch - 50), createVector(cw - 275, ch - 50), 0))
   bpointArray.push(new Bpoint(true, createVector(cw - 200, ch + 50), createVector(cw - 275, ch + 50), createVector(cw - 125, ch + 50), 1))
   bpointArray.push(new Bpoint(true, createVector(cw + 200, ch + 50), createVector(cw + 125, ch + 50), createVector(cw + 275, ch + 50), 2))
   bpointArray.push(new Bpoint(true, createVector(cw + 200, ch - 50), createVector(cw + 275, ch - 50), createVector(cw + 125, ch - 50), 3))
-  for (let i = 0; i < bpointArray.length; i++) { // init baseArray
-    if (bpointArray[i].isBase) {
-      baseArray.push(bpointArray[i])
-    }
+  for (let b of bpointArray){
+    if(b.isBase) baseArray.push(b)
   }
-
-  // knotspaceX = createSlider(0, 100, 0)
-  // knotspaceX.position(150, 5)
-  // tempBezier = new Bezier(100,25 , 10,90 , 110,100 , 150,195) //Initializing tempBezier
-  print("Knotsize: 24 Bpoints")
-
   sound = new p5.AudioIn()
   sound.start()
   fft = new p5.FFT()
@@ -138,9 +99,6 @@ function setup() {
   for (let i = 0; i < 20; i++) { // making a 10 frame buffer for clamping pastvolumes
     clampedvBuffer.push(0)
   }
-  for (let i = 0; i < 2; i++) { // making a 2 frame buffer for centroids
-    currCidBuffer.push(0)
-  }
   spectralCentroid = 600 // initializing variable to pass to shader before sound is fftanalyzed
 
   init24knots() // initializing all knots for immediate functionality
@@ -152,6 +110,7 @@ function setup() {
   // hzS = createSlider(0, 500, 0, 0)
   // hzS.position(10, 50, 0, 0)
   // hzS.style('width', '800px')
+  console.clear()
 }
 
 function init24knots() {
@@ -182,7 +141,6 @@ function draw() {
     fill(255)
     text('🎤 Click para activar micrófono, silba para navegar', width / 2, height / 2)
     textSize(width / 24)
-    //textFont(acid)
     fill(105, 2, 2)
     text('Cómo ver con los ojos cerrados', (width / 2) + txRwalk, (height * .45) + tyRwalk)
     textSize(width / 24.2)
@@ -192,29 +150,16 @@ function draw() {
     txRwalk += map(random(), 0, 1, -fac, fac)
     tyRwalk += map(random(), 0, 1, -fac, fac)
   } else {
-    if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
-      drawShader()
-    } else {
-      background(38, 29, 29)
-    }
-
+    (height < (width * 1.4)) ? drawShader(): background(38, 29, 29)
     imageMode(CENTER)
     for (let i = 0; i < floaters.length; i++) { //drawing all floaters in the array
       drawFloaters(floaters[i], i * 100, i) //passing floaterimg noiseseed and index
     }
-    if (drawControls) {
-      for (let i = 0; i < bpointArray.length; i++) { //control Bpoints and handles
-        bpointArray[i].calcMouse();
-        bpointArray[i].displayBpoint();
-      }
-    }
     drawBezier()
     drawAttractor()
-
     for (let w of whistlingArray) { // Checking if there's any whistling in the buffer
       if (w > 0) {
         whistling = true
-
       }
     }
     whistlingArray.push(0) // cleaning Buffer
@@ -227,24 +172,13 @@ function draw() {
       spectralCentroid = fft.getCentroid()
       fill(255)
       textSize(15)
-      //text(round(spectralCentroid) + ' Hz', width / 2, 100)
-      // text('Vol:' + map(sound.getLevel(), .0006, .02, 0, 3), width / 2, 100)
-      // text('Hz:' + map(spectralCentroid, minHz, maxHz, 0, 3), width / 2, 50)
-      // centroids.push(spectralCentroid) //push Centroid to average it with previous
-      // centroids.shift()
-      // volumeBuffer.push(sound.getLevel()) //push Volume to average it with previous
-      // volumeBuffer.shift()
-      //interpolatebpointArray(knotspace)
-      //interpolatebpointArray2D(testknots)
       sqInterpolatebpointArray2D(testknots)
-      //drawKeywords(true, chooseKeywords()) // drawKeywords(whistling  ?)
       drawKeywords2D(true, chooseKeywords2D())
       whistling = false // reset whistling
     } else if (looseknot) { // if lknot active
       interpolatetoLooseKnot(loosejson) // interpolate until the knot is loose
       drawKeywords2D(false, chosenWordBuffer) // use the last randomly chosen word
     }
-    //drawFoundtext()
     drawFoundtext2D()
     //print('amp:' + sound.getLevel())
   }
@@ -268,132 +202,35 @@ function drawShader() {
 function drawShader1() {
   imageMode(CORNER)
   texShader1.shader(hyp1)
-  hyp1.setUniform('u_resolution', [width, height]) //	theShader.setUniform('u_resolution',[width/1000,height/1000])
+  hyp1.setUniform('u_resolution', [width, height])
   hyp1.setUniform('u_time', millis() / 1000)
-  hyp1.setUniform('u_mouse', [.4, .2]) //generator position
-  hyp1.setUniform('u_mousestrength', .0135) //strength of generator
-  //hyp1.setUniform('u_mouse', [mouseX / width, mouseY / height])
+  hyp1.setUniform('u_mouse', [.4, .2])
+  hyp1.setUniform('u_mousestrength', .0135)
   hyp1.setUniform('tex0', sourceCanvas);
   if (whistling) {
     hyp1.setUniform('u_splash', 2.) // >1 is true less is false, this controls the mouse generator display
   } else {
     hyp1.setUniform('u_splash', .5)
   }
+
   texShader1.rect(0, 0, width, height)
-  sourceCanvas.image(texShader1, 0, 0, width, height) //Source canvas is a graphics buffer to use for background to the shader
-  // sourceCanvas.fill(floor(random(255)),floor(random(255)),floor(random(255)))
-  // sourceCanvas.noStroke()
-  // sourceCanvas.ellipse(50,50,20,20)
-  //sourceCanvas.background(0,100)
-  blendMode(SCREEN) //this was separated into 2 steps after whistling, but it was unnecesary
+  sourceCanvas.image(texShader1, 0, 0, width, height)
+  blendMode(SCREEN)
   image(sourceCanvas, 0, 0)
   blendMode(BLEND)
 }
 
-function analyzeSound() { // Activates whistling switch, function executed whenever whistling is detected by library
-  // let position = map(spectralCentroid, 500, 2000, 0, windowHeight)
-  // ellipse(200, position, 100, 100)
+function analyzeSound() {
   whistlingArray.push(1) // adds 1 at the end
   whistlingArray.shift() // Removes first element and shifts
 }
 
 function Bpoint(basestatus, pos, h1pos, h2pos, index) {
-  //function Bpoint(posx, posy, h1posx, h1posy, h2posx, h2posy, cornerstatus) {
   this.index = index
   this.isBase = basestatus
-  this.isAsymmetrical = true
-  this.isCorner = false // Is this a Bezier corner
   this.location = createVector(pos.x, pos.y);
   this.h1location = createVector(h1pos.x, h1pos.y);
   this.h2location = createVector(h2pos.x, h2pos.y);
-  this.clickable
-  this.h1clickable
-  this.h2clickable
-  this.bpointsize = 20
-  this.hsize = this.bpointsize - 5 // Handle size
-
-
-  this.drag = function() { // If point is clickable and last activated, drag with mouse
-    if (this.clickable && activeBpoint == this.location) {
-      this.location.x = mouseX
-      this.location.y = mouseY
-      let offset = .642 // Offset by which pmouse exceeds mousedrag
-      this.h1location.add((mouseX - pmouseX) * offset, (mouseY - pmouseY) * offset) //adding mousechange to handle vectors
-      this.h2location.add((mouseX - pmouseX) * offset, (mouseY - pmouseY) * offset)
-
-    } else if (this.h1clickable && activeBpoint == this.h1location) {
-      if (this.isCorner) {
-        this.h1location.x = mouseX
-        this.h1location.y = mouseY
-      } else {
-        this.h1location.x = mouseX
-        this.h1location.y = mouseY
-        this.h2location = p5.Vector.lerp(this.h1location, this.location, 2) // defines h2 as in the path between h1 and Bpoint multiplied by 2
-      }
-    } else if (this.h2clickable && activeBpoint == this.h2location) {
-      if (this.isCorner) {
-        this.h2location.x = mouseX;
-        this.h2location.y = mouseY;
-      } else {
-        this.h2location.x = mouseX
-        this.h2location.y = mouseY
-        this.h1location = p5.Vector.lerp(this.h2location, this.location, 2)
-      }
-    }
-  }
-  this.calcMouse = function() { //evaluating pointClickable for each of the 3 points
-    if (pointClickable(this.location, this.bpointsize)) {
-      this.clickable = true
-      //canvas.style.cursor='move'; //You could change pointer styles
-    } else {
-      this.clickable = false
-    }
-    if (pointClickable(this.h1location, this.hsize)) {
-      this.h1clickable = true
-    } else {
-      this.h1clickable = false
-    }
-    if (pointClickable(this.h2location, this.hsize)) {
-      this.h2clickable = true
-    } else {
-      this.h2clickable = false
-    }
-  }
-  this.displayBpoint = function() { // draw points and links in screen
-    stroke(100)
-    strokeWeight(1)
-    line(this.location.x, this.location.y, this.h1location.x, this.h1location.y)
-    line(this.location.x, this.location.y, this.h2location.x, this.h2location.y)
-    noStroke()
-    if (activeBezier == this) {
-      fill(50, 255, 255)
-    } else if (prevactiveBezier == this) {
-      fill(50, 175, 255)
-    } else {
-      fill(255, 139, 0)
-    }
-    ellipse(this.location.x, this.location.y, this.bpointsize)
-    stroke(255, 0, 0)
-    noFill()
-    ellipse(this.h1location.x, this.h1location.y, this.hsize)
-    stroke(200, 100, 0)
-    ellipse(this.h2location.x, this.h2location.y, this.hsize)
-
-  }
-}
-
-function pointClickable(point, size) { // Is my mouse over this point?
-  let distance
-  if (mouseX > point.x - 100 && mouseX < point.x + 100 && mouseY > point.y - 100 && mouseY < point.y + 100) { //gaining 4-5 fps
-    distance = dist(mouseX, mouseY, point.x, point.y); // calc distance betwwen mouse and this pos
-    if (distance < size / 2) {
-      return true
-    } else {
-      return false
-    }
-  } else {
-    return false
-  }
 }
 
 function drawBezier() {
@@ -438,21 +275,6 @@ function updatebpointArray(json) {
   }
 }
 
-function chooseKeywords() {
-  let choice
-  if (currC(spectralCentroid, knotspace, 0) != undefined) { //if currC is defined, choose a random between 0 and the length of currC keyword array
-    choice = floor(random(keyWords[currC(spectralCentroid, knotspace, 0)].s.length)) // choose a random id between the available ids in the current Compartment keyword array
-    //print(keyWords[currC(spectralCentroid, knotspace, 0)].s.length,choice)
-  } else if (spectralCentroid <= minHz) {
-    choice = floor(random(keyWords[0].s.length))
-    print("outsiderange - low")
-  } else if (spectralCentroid >= maxHz) {
-    choice = floor(random(keyWords[knotsNum - 2].s.length)) // to get the desired length of keywordsJSON I link it to knots, 4 knots, 3 spaces: 0,1,2, last one is always -2 of knotnum
-    print("outsiderange - high")
-  }
-  return choice
-}
-
 function chooseKeywords2D() {
   let choice
   if (zone2D != undefined) { //if currC is defined, choose a random between 0 and the length of currC keyword array
@@ -477,74 +299,23 @@ function drawFloaters(floater, seedOffset, index) { // drawing them floaters
   pop()
 }
 
-function drawKeywords(arewewhistling, choose) {
-  // Choose randomly between set depending on currComparment and display them
+function drawKeywords2D(arewewhistling, choose) {
+  // Choose randomly between set depending on zone2D and display them
   // Display also all texts where that word is found, let the user choose one
   if (choose != undefined) { // safety feature
     chosenWordBuffer = choose
   }
   textSize(height / 30)
-  //sourceCanvas.textSize(width / 30) // Trying to add trail for text, same below
-  //make switch for mobile
   fill(200)
   noStroke()
   textAlign(CENTER)
-  if (currC(spectralCentroid, knotspace, 0) != undefined) { //if currC is defined, draw chosen keyword, else draw the buffer keyword
-    if (arewewhistling) {
-      text(keyWords[currC(spectralCentroid, knotspace, 0)].s[choose], width / 2, height * .2)
-      //sourceCanvas.fill(floor(random(255)),floor(random(255)),floor(random(255)))
-      //sourceCanvas.text(keyWords[currC(spectralCentroid, knotspace, 0)].s[choose], width / 2, height * .2)
-    } else if (chosenWordBuffer != undefined) {
-      text(keyWords[currC(spectralCentroid, knotspace, 0)].s[chosenWordBuffer], width / 2, height * .2)
-    }
-  } else if (spectralCentroid <= minHz) {
-    text(keyWords[0].s[chosenWordBuffer], width / 2, height * .2)
-  } else if (spectralCentroid >= maxHz) {
-    text(keyWords[knotsNum - 2].s[chosenWordBuffer], width / 2, height * .2)
-  }
-}
-
-function drawKeywords2D(arewewhistling, choose) {
-  // Choose randomly between set depending on currComparment and display them
-  // Display also all texts where that word is found, let the user choose one
-  if (choose != undefined) { // safety feature
-    chosenWordBuffer = choose
-  }
-  textSize(height/30)
-  fill(200)
-  noStroke()
-  textAlign(CENTER)
-  if (zone2D != undefined) { //if currC is defined, draw chosen keyword, else draw the buffer keyword
+  if (zone2D != undefined) { //if zone2D is defined, draw chosen keyword, else draw the buffer keyword
     if (arewewhistling) {
       text(keyWords[zone2D].s[choose], width / 2, height * .15)
-      //sourceCanvas.fill(floor(random(255)),floor(random(255)),floor(random(255)))
-      //sourceCanvas.text(keyWords[currC(spectralCentroid, knotspace, 0)].s[choose], width / 2, height * .2)
     } else if (chosenWordBuffer != undefined) {
       text(keyWords[zone2D].s[chosenWordBuffer], width / 2, height * .15)
     }
   }
-}
-
-function drawFoundtext() {
-  noStroke()
-  textSize(height / 60)
-  textStyle(ITALIC)
-  let currKeyword
-  if ((chosenWordBuffer != undefined) && (currC(spectralCentroid, knotspace, 0) != undefined)) { //if currKeyword is initialized and defined
-    currKeyword = keyWords[currC(spectralCentroid, knotspace, 0)].s[chosenWordBuffer] // defined currKeyword as actual currC keyword
-    getStrIndex(textArray[1], currKeyword) // get its index in text string
-    text(textArray[1].slice(iStrFound[0] - 20, iStrFound[0] + currKeyword.length + 20), // Slice it and surrounding 20 strings to draw them
-      width * .5, height * .8)
-  } else if (spectralCentroid <= minHz) {
-    getStrIndex(textArray[1], keyWords[0].s[chosenWordBuffer]) // Same as drawKeywords, use first set on the keyWord Array, get the index of the chosenWord
-    text(textArray[1].slice(iStrFound[0] - 20, iStrFound[0] + keyWords[0].s[chosenWordBuffer].length + 20), // Slice it from text
-      width * .5, height * .8)
-  } else if (spectralCentroid >= maxHz) {
-    getStrIndex(textArray[1], keyWords[knotsNum - 2].s[chosenWordBuffer]) // Same as drawKeywords, use last set on the keyWord Array, get the index of the chosenWord
-    text(textArray[1].slice(iStrFound[0] - 20, iStrFound[0] + keyWords[knotsNum - 2].s[chosenWordBuffer].length + 20), // Slice it from text
-      width * .5, height * .8)
-  }
-  textStyle(NORMAL)
 }
 
 function drawFoundtext2D() {
@@ -564,7 +335,6 @@ function drawFoundtext2D() {
 
 function getStrIndex(sourceStr, searchStr) {
   iStrFound = [...sourceStr.matchAll(new RegExp(searchStr, 'gi'))].map(a => a.index)
-  //print(iStrFound)
 }
 
 function drawAttractor() { // Drawing attractors between base bpoints
@@ -575,297 +345,8 @@ function drawAttractor() { // Drawing attractors between base bpoints
   noFill()
   ellipse(apos1.x, apos1.y, 20)
   ellipse(apos2.x, apos2.y, 20)
-  pageCenter = p5.Vector.lerp(apos1, apos2, .5)
-}
-
-function createBpoint() {
-  if ((activeBezier && prevactiveBezier != undefined)) {
-    if ((activeBezier.index < prevactiveBezier.index) && (activeBezier.index !== 0)) {
-      [activeBezier, prevactiveBezier] = [prevactiveBezier, activeBezier] // switches activeBeziers
-    }
-    // let r = p5.Vector.lerp(activeBezier.location, prevactiveBezier.location, 0.5) // previous system which created newbpoint in the .5lerp of actiev bpoints
-    // let h1 = p5.Vector.lerp(r, prevactiveBezier.location, .2)
-    // let h2 = p5.Vector.lerp(r, activeBezier.location, .2)
-    tempBezier = new Bezier(activeBezier.location.x, activeBezier.location.y, activeBezier.h1location.x, activeBezier.h1location.y,
-      prevactiveBezier.h2location.x, prevactiveBezier.h2location.y, prevactiveBezier.location.x, prevactiveBezier.location.y)
-
-    let r = tempBezier.get(.5)
-
-    if ((activeBezier.index && prevactiveBezier.index) !== 0) {
-      //bpointArray.splice(prevactiveBezier.index + 1, 0, new Bpoint(false, r, h1, h2, activeBezier.index)) // Old system: creates newBpoint in the path between active and preactvie Beiers
-      bpointArray.splice(prevactiveBezier.index + 1, 0, new Bpoint(false, r, r, r, activeBezier.index))
-      compensateHandle(true)
-    } else if (prevactiveBezier.index == 0) { // Fixed invertion of handles for special case preactivebezier.index = 0
-
-      tempBezier = new Bezier(activeBezier.location.x, activeBezier.location.y, activeBezier.h2location.x, activeBezier.h2location.y,
-        prevactiveBezier.h1location.x, prevactiveBezier.h1location.y, prevactiveBezier.location.x, prevactiveBezier.location.y)
-      r = tempBezier.get(.5)
-
-      bpointArray.push(new Bpoint(false, r, r, r, bpointArray.length))
-      compensateHandle(false)
-    } else { // if activeBezier is 0, push new Bpoint instead of splicing
-      bpointArray.push(new Bpoint(false, r, r, r, bpointArray.length))
-      compensateHandle(true)
-    }
-  }
-  for (let i = 0; i < bpointArray.length; i++) { //updatinng indexes
-    bpointArray[i].index = i
-  }
-  print("current Bpoints:" + bpointArray.length)
-}
-
-function compensateHandle(h1isfirst) { // reducing the handle length to compensate for new point in the middle of previous bezier
-  let factor = .245
-  if (h1isfirst) {
-    activeBezier.h1location = p5.Vector.lerp(activeBezier.h1location, activeBezier.location, factor)
-    prevactiveBezier.h2location = p5.Vector.lerp(prevactiveBezier.h2location, prevactiveBezier.location, factor)
-  } else {
-    activeBezier.h2location = p5.Vector.lerp(activeBezier.h2location, activeBezier.location, factor)
-    prevactiveBezier.h1location = p5.Vector.lerp(prevactiveBezier.h1location, prevactiveBezier.location, factor)
-  }
-}
-
-function interpolatebpointArray(jsonArray) { //add the possibility to undulate in the static points
-  let ks // defines the lerp factor between active jsons
-  let averageCentroid = centroids.reduce((a, b) => a + b, 0) / centroids.length // averaging array contents
-  let locorigin = createVector()
-  let h1origin = createVector()
-  let h2origin = createVector()
-  let loctarget = createVector()
-  let h1target = createVector()
-  let h2target = createVector()
-  let json1
-  let json2
-
-  currCidBuffer.push(new currCholder(averageCentroid, jsonArray)) // maybe this is not necessary anymore, old: push new currC holder object into the buffer
-  currCidBuffer.shift()
-
-  if (spectralCentroid <= minHz + 1 || averageCentroid <= minHz + 1) { // defining jsons for out of range centroids
-    json1 = jsonArray[0]
-    json2 = jsonArray[1]
-    ks = 0
-  } else if (spectralCentroid >= maxHz - 1 || averageCentroid >= maxHz - 1) { // defining jsons for out of range centroids
-    json1 = jsonArray[jsonArray.length - 2]
-    json2 = jsonArray[jsonArray.length - 1]
-    ks = 1
-  } else if (currC(averageCentroid, jsonArray, 0) == undefined) { // when avgCentroid = exact compartment division it crashed, old: If currC is desynchronyzed and spews undefined, take data from CurrCidBuffer
-    json1 = jsonArray[currCidBuffer[0].id]
-    json2 = jsonArray[currCidBuffer[0].id + 1]
-    ks = map(averageCentroid, currCidBuffer[0].lower, currCidBuffer[0].upper, 0, 1, true)
-    print(jsonArray[currCidBuffer[0].id], "centroid undefined", "l:" + currCidBuffer[0].lower,
-      "u:" + currCidBuffer[0].upper, "raw:" + spectralCentroid, "avg" + averageCentroid)
-  } else {
-    json1 = jsonArray[currC(averageCentroid, jsonArray, 0)] // define jsons as jsonArray with id currCompartment
-    json2 = jsonArray[currC(averageCentroid, jsonArray, 0) + 1]
-
-    // ks = map(averageCentroid, currCidBuffer[currCidBuffer.length-2].lower, // maps ks to currClower and upper limits
-    //   currCidBuffer[currCidBuffer.length-2].upper, 0, 1, true)
-    ks = map(averageCentroid, currC(averageCentroid, jsonArray, 1), // maps ks to currClower and upper limits
-      currC(averageCentroid, jsonArray, 2), 0, 1, true)
-    //print(currC(averageCentroid, jsonArray, 0))
-  }
-  if (json1 == undefined || json2 == undefined) { // Avoid crashing with a json=undefined
-    json1 = jsonArray[0]
-    json2 = jsonArray[1]
-    ks = .5
-    print("json undefined, this should've crashed")
-  }
-
-  if (bpointArray.length == Object.keys(jsonArray[0]).length) { // if bpointArray length is enough, defines origins and targets and lerps by ks
-    for (i = 0; i < bpointArray.length; i++) {
-      locorigin.x = json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
-      locorigin.y = json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
-      h1origin.x = json1[i].h1x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
-      h1origin.y = json1[i].h1y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
-      h2origin.x = json1[i].h2x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx
-      h2origin.y = json1[i].h2y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy
-
-      loctarget.x = json2[i].lx + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
-      loctarget.y = json2[i].ly + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
-      h1target.x = json2[i].h1x + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
-      h1target.y = json2[i].h1y + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
-      h2target.x = json2[i].h2x + ((windowWidth / 2) - json2[i].cx) + json2[i].offx
-      h2target.y = json2[i].h2y + ((windowHeight / 2) - json2[i].cy) + json2[i].offy
-
-      bpointArray[i].location = p5.Vector.lerp(locorigin, loctarget, ks)
-      bpointArray[i].h1location = p5.Vector.lerp(h1origin, h1target, ks)
-      bpointArray[i].h2location = p5.Vector.lerp(h2origin, h2target, ks)
-    }
-  } else { // consoleprint the number of bpoints required
-    print("Saved knot - add Bpoints:" + bpointArray.length + "/" + Object.keys(jsonArray[0]).length)
-  }
 }
 /////2D
-function interpolatebpointArray2D(jsonArray) { // interpolate2D without sq clamping
-  let vol = map(sound.getLevel(), .0006, .02, 0, 3)
-  let hz = map(spectralCentroid, minHz, maxHz, 0, 3)
-  let ks // Knotspace value
-  let json1 // json holders
-  let json2
-  let json3
-  let json4
-  let j1lerpj2 //objects holding lerped jsons for finallerp
-  let j3lerpj4
-
-  if (hz <= 1) { // zone 1
-    json1 = jsonArray[0] //
-    json2 = jsonArray[0]
-    //fill j1 lerp j2 , no need to lerp here
-    j1lerpj2 = new resultObj()
-    for (i = 0; i < bpointArray.length; i++) {
-      j1lerpj2.locarray[i] = createVector(json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
-        json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
-      j1lerpj2.h1array[i] = createVector(json1[i].h1x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
-        json1[i].h1y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
-      j1lerpj2.h2array[i] = createVector(json1[i].h2x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
-        json1[i].h2y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
-    }
-    if (vol <= 1) { // zone 1.1
-      json3 = jsonArray[1]
-      json4 = jsonArray[2]
-      //j3 lerp j4 by volume
-      ks = map(vol, 0, 1, 0, 1, true) // map volume, constrainValue true
-      j3lerpj4 = new resultObj()
-      lerpThis(json3, json4, ks, j3lerpj4)
-      //redefine ks in hz
-      ks = map(hz, 0, 1, 0, 1, true)
-      finalLerp(j1lerpj2, j3lerpj4, ks)
-    } else {
-      json3 = jsonArray[2]
-      json4 = jsonArray[3]
-      //j3 lerp j4 by volume
-      ks = map(vol, 1, 2, 0, 1, true) // map volume, constrainValue true
-      j3lerpj4 = new resultObj()
-      lerpThis(json3, json4, ks, j3lerpj4)
-      //redefine ks in hz
-      ks = map(hz, 0, 1, 0, 1, true)
-      finalLerp(j1lerpj2, j3lerpj4, ks)
-    }
-  } else if (hz <= 2) { // zones 234
-    if (vol <= 1) { // zone 2
-      json1 = jsonArray[1] //
-      json2 = jsonArray[2]
-      json3 = jsonArray[4] //
-      json4 = jsonArray[5]
-      //j1 lerp j2 by volume
-      ks = map(vol, 0, 1, 0, 1, true) // map volume, constrainValue true
-      j1lerpj2 = new resultObj()
-      lerpThis(json1, json2, ks, j1lerpj2)
-      //j3 lerp j4 by volume
-      ks = map(vol, 0, 1, 0, 1, true) // map volume, constrainValue true
-      j3lerpj4 = new resultObj()
-      lerpThis(json3, json4, ks, j3lerpj4)
-      //redefine ks in hz
-      ks = map(hz, 1, 2, 0, 1, true) // map hz, constrainValue true
-      finalLerp(j1lerpj2, j3lerpj4, ks)
-    } else if (vol <= 2) { // zone 3
-      json1 = jsonArray[2] //
-      json2 = jsonArray[3]
-      json3 = jsonArray[5] //
-      json4 = jsonArray[6]
-      //j1 lerp j2 by volume
-      ks = map(vol, 1, 2, 0, 1, true) // map volume, constrainValue true
-      j1lerpj2 = new resultObj()
-      lerpThis(json1, json2, ks, j1lerpj2)
-      //j3 lerp j4 by volume
-      ks = map(vol, 1, 2, 0, 1, true) // map volume, constrainValue true
-      j3lerpj4 = new resultObj()
-      lerpThis(json3, json4, ks, j3lerpj4)
-      //redefine ks in hz
-      ks = map(hz, 1, 2, 0, 1, true) // map hz, constrainValue true
-      finalLerp(j1lerpj2, j3lerpj4, ks)
-    } else { // zone 4
-      json1 = jsonArray[3] //
-      json2 = jsonArray[3]
-      json3 = jsonArray[6] //
-      json4 = jsonArray[6]
-      // No need to consider volume anymore just pass values into resultObjs and make finallerp
-      j1lerpj2 = new resultObj()
-      for (i = 0; i < bpointArray.length; i++) {
-        j1lerpj2.locarray[i] = createVector(json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
-          json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
-        j1lerpj2.h1array[i] = createVector(json1[i].h1x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
-          json1[i].h1y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
-        j1lerpj2.h2array[i] = createVector(json1[i].h2x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
-          json1[i].h2y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
-      } // using json1
-      j3lerpj4 = new resultObj()
-      for (i = 0; i < bpointArray.length; i++) {
-        j3lerpj4.locarray[i] = createVector(json3[i].lx + ((windowWidth / 2) - json3[i].cx) + json3[i].offx,
-          json3[i].ly + ((windowHeight / 2) - json3[i].cy) + json3[i].offy)
-        j3lerpj4.h1array[i] = createVector(json3[i].h1x + ((windowWidth / 2) - json3[i].cx) + json3[i].offx,
-          json3[i].h1y + ((windowHeight / 2) - json3[i].cy) + json3[i].offy)
-        j3lerpj4.h2array[i] = createVector(json3[i].h2x + ((windowWidth / 2) - json3[i].cx) + json3[i].offx,
-          json3[i].h2y + ((windowHeight / 2) - json3[i].cy) + json3[i].offy)
-      } // using json2
-      //redefine ks in hz
-      ks = map(hz, 1, 2, 0, 1, true) // map hz, constrainValue true
-      finalLerp(j1lerpj2, j3lerpj4, ks)
-    }
-  } else { // zones 567
-    if (vol <= 1) { // zone 5
-      json1 = jsonArray[4] //
-      json2 = jsonArray[5]
-      json3 = jsonArray[7] //
-      json4 = jsonArray[8]
-      //j1 lerp j2 by volume
-      ks = map(vol, 0, 1, 0, 1, true) // map volume, constrainValue true
-      j1lerpj2 = new resultObj()
-      lerpThis(json1, json2, ks, j1lerpj2)
-      //j3 lerp j4 by volume
-      ks = map(vol, 0, 1, 0, 1, true) // map volume, constrainValue true
-      j3lerpj4 = new resultObj()
-      lerpThis(json3, json4, ks, j3lerpj4)
-      //redefine ks in hz
-      ks = map(hz, 2, 3, 0, 1, true) // map hz, constrainValue true
-      finalLerp(j1lerpj2, j3lerpj4, ks)
-    } else if (vol <= 2) { // zone 6
-      json1 = jsonArray[5] //
-      json2 = jsonArray[6]
-      json3 = jsonArray[8] //
-      json4 = jsonArray[9]
-      //j1 lerp j2 by volume
-      ks = map(vol, 1, 2, 0, 1, true) // map volume, constrainValue true
-      j1lerpj2 = new resultObj()
-      lerpThis(json1, json2, ks, j1lerpj2)
-      //j3 lerp j4 by volume
-      ks = map(vol, 1, 2, 0, 1, true) // map volume, constrainValue true
-      j3lerpj4 = new resultObj()
-      lerpThis(json3, json4, ks, j3lerpj4)
-      //redefine ks in hz
-      ks = map(hz, 2, 3, 0, 1, true) // map hz, constrainValue true
-      finalLerp(j1lerpj2, j3lerpj4, ks)
-    } else { // zone 7
-      json1 = jsonArray[6] //
-      json2 = jsonArray[6]
-      json3 = jsonArray[9] //
-      json4 = jsonArray[9]
-      // No need to consider volume anymore just pass values into resultObjs and make finallerp
-      j1lerpj2 = new resultObj()
-      for (i = 0; i < bpointArray.length; i++) {
-        j1lerpj2.locarray[i] = createVector(json1[i].lx + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
-          json1[i].ly + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
-        j1lerpj2.h1array[i] = createVector(json1[i].h1x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
-          json1[i].h1y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
-        j1lerpj2.h2array[i] = createVector(json1[i].h2x + ((windowWidth / 2) - json1[i].cx) + json1[i].offx,
-          json1[i].h2y + ((windowHeight / 2) - json1[i].cy) + json1[i].offy)
-      } // using json1
-      j3lerpj4 = new resultObj()
-      for (i = 0; i < bpointArray.length; i++) {
-        j3lerpj4.locarray[i] = createVector(json3[i].lx + ((windowWidth / 2) - json3[i].cx) + json3[i].offx,
-          json3[i].ly + ((windowHeight / 2) - json3[i].cy) + json3[i].offy)
-        j3lerpj4.h1array[i] = createVector(json3[i].h1x + ((windowWidth / 2) - json3[i].cx) + json3[i].offx,
-          json3[i].h1y + ((windowHeight / 2) - json3[i].cy) + json3[i].offy)
-        j3lerpj4.h2array[i] = createVector(json3[i].h2x + ((windowWidth / 2) - json3[i].cx) + json3[i].offx,
-          json3[i].h2y + ((windowHeight / 2) - json3[i].cy) + json3[i].offy)
-      } // using json2
-      //redefine ks in hz
-      ks = map(hz, 2, 3, 0, 1, true) // map hz, constrainValue true
-      finalLerp(j1lerpj2, j3lerpj4, ks)
-    }
-  }
-}
-
 function sqInterpolatebpointArray2D(jsonArray) { //interpolate2D w clamping and zone declaration
   centroids.push(map(spectralCentroid, minHz, maxHz, 0, 3)) //push Centroid to average it with previous
   centroids.shift()
@@ -873,7 +354,7 @@ function sqInterpolatebpointArray2D(jsonArray) { //interpolate2D w clamping and 
   clampedhBuffer.shift()
   let avgHz = clampedhBuffer.reduce((a, b) => a + b, 0) / clampedhBuffer.length // we avg clamped 10 frames
   let hz = avgHz // pass avgHz to hz
-  if (hz > 2){ // if hz is high we must map volume much lower
+  if (hz > 2) { // if hz is high we must map volume much lower
     volumeBuffer.push(map(sound.getLevel(), 0, .012, 0, 3))
   } else if (sound.getLevel() < .012) { // this shifts the proportions of each volume compartment
     volumeBuffer.push(map(sound.getLevel(), 0, .012, 0, 1))
@@ -1086,8 +567,8 @@ function sqInterpolatebpointArray2D(jsonArray) { //interpolate2D w clamping and 
       finalLerp(j1lerpj2, j3lerpj4, ks)
     }
   }
-  print('zone2D:'+zone2D,'v:' + ((round(volumeBuffer[30]*1000))/1000) + '|' + ((round(vol*1000))/1000),
-  'hz:' + ((round(centroids[20]*1000))/1000)+'|' + ((round(hz*1000))/1000)) // debug my life
+  print('zone2D:' + zone2D, 'v:' + ((round(volumeBuffer[30] * 1000)) / 1000) + '|' + ((round(vol * 1000)) / 1000),
+    'hz:' + ((round(centroids[20] * 1000)) / 1000) + '|' + ((round(hz * 1000)) / 1000)) // debug my life
 }
 
 function resultObj() {
@@ -1131,46 +612,6 @@ function finalLerp(obj1, obj2, factor) {
     bpointArray[i].h2location = p5.Vector.lerp(obj1.h2array[i], obj2.h2array[i], factor)
   }
 }
-/////
-function currCholder(centroid, jsonArray) { // current Compartment holder to save on buffer
-  this.id = currC(centroid, jsonArray, 0)
-  this.lower = currC(centroid, jsonArray, 1)
-  this.upper = currC(centroid, jsonArray, 2)
-}
-
-function currC(centroid, jsonArray, returnmode) { // current compartment, returns currC id or currC lowerrange or currC upperrange
-  const kcAmm = knotspace.length - 1 // |  |  | -> 3 knots means only 2 compartments
-  const range = maxHz - minHz // range of whistling
-  const kcSize = range / (knotspace.length - 1) // knot compartment size
-  let currentkCmin
-  let currentkCmax
-  if (returnmode == 0) {
-    for (i = 0; i < kcAmm; i++) { // return i if centroid is in between min&maxHz values for compartment[i]
-      currentkCmin = minHz + (kcSize * i)
-      currentkCmax = minHz + (kcSize * (i + 1))
-      if (isBetween(centroid, currentkCmin, currentkCmax, true)) { // This shit was crashing it => old: Adding +1 so that include range doesn't overlap w/ previous
-        return i
-      }
-    }
-  } else if (returnmode == 1) {
-    for (i = 0; i < kcAmm; i++) { // return currentkCmin
-      currentkCmin = minHz + (kcSize * i)
-      currentkCmax = minHz + (kcSize * (i + 1))
-      if (isBetween(centroid, currentkCmin, currentkCmax, true)) {
-        return currentkCmin
-      }
-    }
-  } else if (returnmode == 2) {
-    for (i = 0; i < kcAmm; i++) { // return currentkCmax
-      currentkCmin = minHz + (kcSize * i)
-      currentkCmax = minHz + (kcSize * (i + 1))
-      if (isBetween(centroid, currentkCmin, currentkCmax, true)) {
-        return currentkCmax
-      }
-    }
-  }
-}
-
 /////
 function isBetween(num, rangelower, rangeupper, inclusive) { // is a number between these two?
   let min = Math.min(rangelower, rangeupper)
@@ -1217,45 +658,7 @@ function near(num1, num2, factor) {
   return (num1 > (num2 - factor) && num1 < (num2 + factor))
 }
 
-function deleteBpoint() {
-  bpointArray.splice(activeBezier.index, 1) // in position index, delete 1 element
-  for (let i = 0; i < bpointArray.length; i++) { //updatinng indexes
-    bpointArray[i].index = i
-  }
-}
-
 function keyPressed() {
-  if (keyCode === 86) { //v
-    activeBezier.isCorner = !activeBezier.isCorner
-  }
-  if (keyCode === 88) { // x
-    [activeBezier.h1location, activeBezier.h2location] = [activeBezier.h2location, activeBezier.h1location] // Switches handle locations
-  }
-  if (keyCode === 90) { //z
-    createBpoint()
-  }
-  if (keyCode === 65) { //a
-    deleteBpoint()
-  }
-  if (keyCode === 68) { //d
-    drawControls = !drawControls
-    print("drawingControls")
-  }
-  if (keyCode === 67) { //c
-    activeBezier.isAsymmetrical = !activeBezier.isAsymmetrical // locked handle but asym lenghts is not defined yet
-  }
-  if (keyCode === 83) { //s
-    finalBeziers = [] // empty first
-    for (let i = 0; i < bpointArray.length; i++) { // filling finalBeziers array with Bpointpos objects (simplified Bpoints)
-      finalBeziers.push(new Bpointpos(bpointArray[i].index, bpointArray[i].isBase,
-        bpointArray[i].location.x, bpointArray[i].location.y,
-        bpointArray[i].h1location.x, bpointArray[i].h1location.y,
-        bpointArray[i].h2location.x, bpointArray[i].h2location.y))
-    }
-    downloadObjectAsJson(finalBeziers, "knotJSON" + jsonCount)
-    jsonCount++
-    print("saved json")
-  }
   if (keyCode === 84) { // t
     updatebpointArray(knotspace[0]) // immediately change location for dots to specified knot
     print("bby")
@@ -1265,56 +668,12 @@ function keyPressed() {
   }
 }
 
-function Bpointpos(index, basestatus, posx, posy, h1posx, h1posy, h2posx, h2posy) { // simplified Bpoints for saving in json
-  this.index = index
-  this.isBase = basestatus
-  this.offx = (windowWidth / 2) - pageCenter.x //saving the offset, the diff between center of bases and center of page
-  this.offy = (windowHeight / 2) - pageCenter.y
-  this.cx = (windowWidth / 2) // saving the current canvas size
-  this.cy = (windowHeight / 2)
-  this.lx = posx
-  this.ly = posy
-  this.h1x = h1posx
-  this.h1y = h1posy
-  this.h2x = h2posx
-  this.h2y = h2posy
-}
-
 function mousePressed() { //Activate audio, Points activate with a click before being able to drag them
-  for (let i = 0; i < bpointArray.length; i++) {
-    if (pointClickable(bpointArray[i].location, bpointArray[i].bpointsize)) {
-      activeBpoint = bpointArray[i].location
-      prevactiveBezier = activeBezier
-      activeBezier = bpointArray[i]
-      print(activeBezier.index)
-    } else if (pointClickable(bpointArray[i].h1location, bpointArray[i].hsize)) {
-      activeBpoint = bpointArray[i].h1location
-    } else if (pointClickable(bpointArray[i].h2location, bpointArray[i].hsize)) {
-      activeBpoint = bpointArray[i].h2location
-    }
-  }
   if (!permissiongiven) {
     permissiongiven = true // variable so that this only is defined once
     userStartAudio() // p5 sound is initialized
     whistlerr.detect(() => analyzeSound()) // Whistlerr needs to recieve a function created right here
   }
-}
-
-function mouseDragged() {
-  for (let i = 0; i < bpointArray.length; i++) {
-    bpointArray[i].drag();
-  }
-  return false; // prevent default
-}
-
-function downloadObjectAsJson(exportObj, exportName) {
-  var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 4));
-  var downloadAnchorNode = document.createElement('a');
-  downloadAnchorNode.setAttribute("href", dataStr);
-  downloadAnchorNode.setAttribute("download", exportName + ".json");
-  document.body.appendChild(downloadAnchorNode); // required for firefox
-  downloadAnchorNode.click();
-  downloadAnchorNode.remove();
 }
 
 function windowResized() {
@@ -1323,39 +682,8 @@ function windowResized() {
   sourceCanvas = createGraphics(windowWidth, windowHeight - 4) // reinitializing sourceCanvas graphics so that shader1 is updated to new windowSize
   //  }
 }
-
-// function drawCurve(curve, offset) { // other drawfunction in ctx Canvas
-//   stroke(50)
-//   strokeWeight(1)
-//   offset = offset || {
-//     x: 0,
-//     y: 0
-//   };
-//   var ox = offset.x;
-//   var oy = offset.y;
-//   ctx.beginPath();
-//   var p = curve.points,
-//     i;
-//   ctx.moveTo(p[0].x + ox, p[0].y + oy);
-//   if (p.length === 3) {
-//     ctx.quadraticCurveTo(
-//       p[1].x + ox, p[1].y + oy,
-//       p[2].x + ox, p[2].y + oy
-//     );
-//   }
-//   if (p.length === 4) {
-//     ctx.bezierCurveTo(
-//       p[1].x + ox, p[1].y + oy,
-//       p[2].x + ox, p[2].y + oy,
-//       p[3].x + ox, p[3].y + oy
-//     );
-//   }
-//   ctx.stroke();
-//   ctx.closePath();
-// }
-
-// Shader by Pierre MARZIN
-var frag = `
+// Shader reference by Pierre MARZIN
+const frag = `
 
 #ifdef GL_ES
 precision mediump float;
@@ -1470,7 +798,7 @@ void main() {
 }
 
 `
-var vert = `
+const vert = `
 //standard vertex shader
 #ifdef GL_ES
       precision highp float;
@@ -1503,7 +831,6 @@ var vert = `
       var_vertTexCoord = aTexCoord;
     }
 `;
-
 /// Shader 2 blurring hypnagogias
 const frag1 = `
 	#ifdef GL_ES
@@ -1680,7 +1007,6 @@ vec3 blur(sampler2D sp, vec2 uv, vec2 scale) {
 		gl_FragColor= vec4(color,1.0);
 	}
 `
-
 const vert1 = `
 // vert file and comments from adam ferriss
 // https://github.com/aferriss/p5jsShaderExamples
