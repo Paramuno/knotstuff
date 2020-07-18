@@ -48,6 +48,8 @@ let tyRwalk = 0
 
 //text variables
 let iStrFound = [] //Array with the indexes of found strings
+///alt mode
+let saladmode = true
 
 function preload() {
   for (let i = 0; i < knotsNum; i++) { // initialize all available knots
@@ -72,11 +74,11 @@ var gl, noctaves, c;
 let sourceCanvas
 
 function setup() {
-  if (windowHeight > (windowWidth * 1.4)){ // reduces mobile resolution and automatically zooms in
-windowWidth *= .5
-windowHeight *= .5
-document.querySelector('meta[name="viewport"]').content = "initial-scale=0.5"
-}
+  if (windowHeight > (windowWidth * 1.4)) { // reduces mobile resolution and automatically zooms in
+    windowWidth *= .5
+    windowHeight *= .5
+    document.querySelector('meta[name="viewport"]').content = "initial-scale=0.5"
+  }
   createCanvas(windowWidth, windowHeight - 4)
   texShader = createGraphics(windowWidth, windowHeight - 4, WEBGL)
   texShader1 = createGraphics(windowWidth, windowHeight - 4, WEBGL)
@@ -176,81 +178,145 @@ function init24knots() {
   print("current Bpoints:" + bpointArray.length)
 }
 
+
 function draw() {
-  if (getAudioContext().state !== 'running') { // If audio context is running
-    background(38, 29, 29)
-    textFont('ubuntu')
-    textSize(width / 50)
-    textAlign(CENTER)
-    fill(255)
-    text('🎤 Click para activar micrófono, silba para navegar', width / 2, height / 2)
-    textSize(width / 24)
-    //textFont(acid)
-    fill(105, 2, 2)
-    text('Cómo ver con los ojos cerrados', (width / 2) + txRwalk, (height * .45) + tyRwalk)
-    textSize(width / 24.2)
-    fill(255, 175)
-    text('Cómo ver con los ojos cerrados', (width / 2), (height * .45))
-    let fac = .15
-    txRwalk += map(random(), 0, 1, -fac, fac)
-    tyRwalk += map(random(), 0, 1, -fac, fac)
+  if (saladmode) {
+    wordSalad()
   } else {
-    if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
-      drawShader()
-    } else {
+    if (getAudioContext().state !== 'running') { // If audio context is running
       background(38, 29, 29)
-    }
-
-    imageMode(CENTER)
-    for (let i = 0; i < floaters.length; i++) { //drawing all floaters in the array
-      drawFloaters(floaters[i], i * 100, i) //passing floaterimg noiseseed and index
-    }
-    if (drawControls) {
-      for (let i = 0; i < bpointArray.length; i++) { //control Bpoints and handles
-        bpointArray[i].calcMouse();
-        bpointArray[i].displayBpoint();
-      }
-    }
-    drawBezier()
-    drawAttractor()
-
-    for (let w of whistlingArray) { // Checking if there's any whistling in the buffer
-      if (w > 0) {
-        whistling = true
-
-      }
-    }
-    whistlingArray.push(0) // cleaning Buffer
-    whistlingArray.shift()
-    if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
-      drawShader1() // after checking for whistling, drawShader1
-    }
-    if (whistling && !loosening) {
-      spectrum = fft.analyze()
-      spectralCentroid = fft.getCentroid()
+      textFont('ubuntu')
+      textSize(width / 50)
+      textAlign(CENTER)
       fill(255)
-      textSize(15)
-      //text(round(spectralCentroid) + ' Hz', width / 2, 100)
-      // text('Vol:' + map(sound.getLevel(), .0006, .02, 0, 3), width / 2, 100)
-      // text('Hz:' + map(spectralCentroid, minHz, maxHz, 0, 3), width / 2, 50)
-      // centroids.push(spectralCentroid) //push Centroid to average it with previous
-      // centroids.shift()
-      // volumeBuffer.push(sound.getLevel()) //push Volume to average it with previous
-      // volumeBuffer.shift()
-      //interpolatebpointArray(knotspace)
-      //interpolatebpointArray2D(testknots)
-      sqInterpolatebpointArray2D(testknots)
-      //drawKeywords(true, chooseKeywords()) // drawKeywords(whistling  ?)
-      drawKeywords2D(true, chooseKeywords2D())
-      whistling = false // reset whistling
-    } else if (looseknot) { // if lknot active
-      interpolatetoLooseKnot(loosejson) // interpolate until the knot is loose
-      drawKeywords2D(false, chosenWordBuffer) // use the last randomly chosen word
+      text('🎤 Click para activar micrófono, silba para navegar', width / 2, height / 2)
+      textSize(width / 24)
+      //textFont(acid)
+      fill(105, 2, 2)
+      text('Cómo ver con los ojos cerrados', (width / 2) + txRwalk, (height * .45) + tyRwalk)
+      textSize(width / 24.2)
+      fill(255, 175)
+      text('Cómo ver con los ojos cerrados', (width / 2), (height * .45))
+      let fac = .15
+      txRwalk += map(random(), 0, 1, -fac, fac)
+      tyRwalk += map(random(), 0, 1, -fac, fac)
+    } else {
+      if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
+        drawShader()
+      } else {
+        background(38, 29, 29)
+      }
+
+      imageMode(CENTER)
+      for (let i = 0; i < floaters.length; i++) { //drawing all floaters in the array
+        drawFloaters(floaters[i], i * 100, i) //passing floaterimg noiseseed and index
+      }
+      if (drawControls) {
+        for (let i = 0; i < bpointArray.length; i++) { //control Bpoints and handles
+          bpointArray[i].calcMouse();
+          bpointArray[i].displayBpoint();
+        }
+      }
+      drawBezier()
+      drawAttractor()
+
+      for (let w of whistlingArray) { // Checking if there's any whistling in the buffer
+        if (w > 0) {
+          whistling = true
+
+        }
+      }
+      whistlingArray.push(0) // cleaning Buffer
+      whistlingArray.shift()
+      if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
+        drawShader1() // after checking for whistling, drawShader1
+      }
+      if (whistling && !loosening) {
+        spectrum = fft.analyze()
+        spectralCentroid = fft.getCentroid()
+        fill(255)
+        textSize(15)
+        //text(round(spectralCentroid) + ' Hz', width / 2, 100)
+        // text('Vol:' + map(sound.getLevel(), .0006, .02, 0, 3), width / 2, 100)
+        // text('Hz:' + map(spectralCentroid, minHz, maxHz, 0, 3), width / 2, 50)
+        // centroids.push(spectralCentroid) //push Centroid to average it with previous
+        // centroids.shift()
+        // volumeBuffer.push(sound.getLevel()) //push Volume to average it with previous
+        // volumeBuffer.shift()
+        //interpolatebpointArray(knotspace)
+        //interpolatebpointArray2D(testknots)
+        sqInterpolatebpointArray2D(testknots)
+        //drawKeywords(true, chooseKeywords()) // drawKeywords(whistling  ?)
+        drawKeywords2D(true, chooseKeywords2D())
+        whistling = false // reset whistling
+      } else if (looseknot) { // if lknot active
+        interpolatetoLooseKnot(loosejson) // interpolate until the knot is loose
+        drawKeywords2D(false, chosenWordBuffer) // use the last randomly chosen word
+      }
+      //drawFoundtext()
+      drawFoundtext2D()
+      //print('amp:' + sound.getLevel())
     }
-    //drawFoundtext()
-    drawFoundtext2D()
-    //print('amp:' + sound.getLevel())
   }
+}
+
+let mouselines = []
+let lmouselines = []
+let knotTimeout = 255
+
+function wordSalad() {
+  background(38, 29, 29)
+  strokeWeight(5)
+  let prevpos = createVector(pmouseX, pmouseY)
+  if (mouseIsPressed && (mouselines.length < 175)) { // hard cap for mouselines size
+    mouselines.push(prevpos)
+  }
+  for (let i = 0; i < mouselines.length; i++) { //draw newknot points
+    stroke(255, 50, 50, map(i, 0, mouselines.length, 0, 255))
+    point(mouselines[i].x, mouselines[i].y)
+  }
+  if (knotTimeout > 0) { // if the Timeout hasn't completed
+    knotTimeout -= 1
+    let strokeBvar = floor(random(220, knotTimeout))
+    let strokeGvar = floor(random(220, knotTimeout))
+    stroke(255, strokeBvar, strokeGvar)
+    //stroke(255, strokeBvar, strokeGvar,knotTimeout)
+    let sOff = map(knotTimeout,0,255,25,0)
+    for (let i = 2; i < lmouselines.length - 1; i++) { // draw prevknot
+      curve(lmouselines[i + 1].x+sOff, lmouselines[i + 1].y+sOff,
+        lmouselines[i].x+sOff, lmouselines[i].y+sOff, lmouselines[i - 1].x+sOff, lmouselines[i - 1].y+sOff,
+        lmouselines[i - 2].x+sOff, lmouselines[i - 2].y+sOff)
+    }
+    if (lmouselines[5] != undefined) { //close knot
+      curve(lmouselines[2].x+sOff, lmouselines[2].y+sOff,
+        lmouselines[1].x+sOff, lmouselines[1].y+sOff, lmouselines[0].x+sOff, lmouselines[0].y+sOff,
+        lmouselines[0].x+sOff, lmouselines[0].y+sOff,
+      ) // draw starting and closing curves
+      curve(lmouselines[lmouselines.length - 1].x+sOff, lmouselines[lmouselines.length - 1].y+sOff,
+        lmouselines[lmouselines.length - 1].x+sOff, lmouselines[lmouselines.length - 1].y+sOff, lmouselines[lmouselines.length - 2].x+sOff, lmouselines[lmouselines.length - 2].y+sOff,
+        lmouselines[lmouselines.length - 3].x+sOff, lmouselines[lmouselines.length - 3].y+sOff,
+      )
+      let h1 = p5.Vector.lerp(lmouselines[0], lmouselines[1], -10)
+      let h2 = p5.Vector.lerp(lmouselines[lmouselines.length - 1], lmouselines[lmouselines.length - 2], -10)
+      noFill()
+      bezier(lmouselines[0].x+sOff, lmouselines[0].y+sOff, //anchor1
+        h1.x, h1.y, //ctrl1
+        h2.x, h2.y, //ctrl2
+        lmouselines[lmouselines.length - 1].x+sOff, lmouselines[lmouselines.length - 1].y+sOff) //anchor2
+    }
+    background(38, 29, 29, map(knotTimeout, 0, 255, 255, 0))
+  }
+}
+
+function saladLetter(x,y){
+this.pos = createVector(x,y)
+this.value = random(1)
+}
+
+function mouseReleased() {
+  knotTimeout = 255
+  lmouselines = [...mouselines] //spread operator to duplicate array, not referencing it
+  mouselines.splice(0, mouselines.length)
 }
 
 function drawShader() {
@@ -513,7 +579,7 @@ function drawKeywords2D(arewewhistling, choose) {
   if (choose != undefined) { // safety feature
     chosenWordBuffer = choose
   }
-  textSize(height/30)
+  textSize(height / 30)
   fill(200)
   noStroke()
   textAlign(CENTER)
@@ -876,7 +942,7 @@ function sqInterpolatebpointArray2D(jsonArray) { //interpolate2D w clamping and 
   clampedhBuffer.shift()
   let avgHz = clampedhBuffer.reduce((a, b) => a + b, 0) / clampedhBuffer.length // we avg clamped 10 frames
   let hz = avgHz // pass avgHz to hz
-  if (hz > 2){ // if hz is high we must map volume much lower
+  if (hz > 2) { // if hz is high we must map volume much lower
     volumeBuffer.push(map(sound.getLevel(), 0, .012, 0, 3))
   } else if (sound.getLevel() < .012) { // this shifts the proportions of each volume compartment
     volumeBuffer.push(map(sound.getLevel(), 0, .012, 0, 1))
@@ -1089,8 +1155,8 @@ function sqInterpolatebpointArray2D(jsonArray) { //interpolate2D w clamping and 
       finalLerp(j1lerpj2, j3lerpj4, ks)
     }
   }
-  print('zone2D:'+zone2D,'v:' + ((round(volumeBuffer[30]*1000))/1000) + '|' + ((round(vol*1000))/1000),
-  'hz:' + ((round(centroids[20]*1000))/1000)+'|' + ((round(hz*1000))/1000)) // debug my life
+  print('zone2D:' + zone2D, 'v:' + ((round(volumeBuffer[30] * 1000)) / 1000) + '|' + ((round(vol * 1000)) / 1000),
+    'hz:' + ((round(centroids[20] * 1000)) / 1000) + '|' + ((round(hz * 1000)) / 1000)) // debug my life
 }
 
 function resultObj() {
@@ -1228,6 +1294,9 @@ function deleteBpoint() {
 }
 
 function keyPressed() {
+  if (keyCode === 81) { //q
+    saladmode = !saladmode
+  }
   if (keyCode === 86) { //v
     activeBezier.isCorner = !activeBezier.isCorner
   }
