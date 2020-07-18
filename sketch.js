@@ -72,8 +72,11 @@ var gl, noctaves, c;
 let sourceCanvas
 
 function setup() {
-  //createCanvas(windowWidth, windowHeight - 4);
-  ///
+  if (windowHeight > (windowWidth * 1.4)){ // reduces mobile resolution and automatically zooms in
+windowWidth *= .5
+windowHeight *= .5
+document.querySelector('meta[name="viewport"]').content = "initial-scale=0.5"
+}
   createCanvas(windowWidth, windowHeight - 4)
   texShader = createGraphics(windowWidth, windowHeight - 4, WEBGL)
   texShader1 = createGraphics(windowWidth, windowHeight - 4, WEBGL)
