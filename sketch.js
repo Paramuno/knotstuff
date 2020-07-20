@@ -45,11 +45,12 @@ let seed1 = 0 // noise seeds
 let seed2 = 1000
 let txRwalk = 0
 let tyRwalk = 0
+let lifeSeed // conwaylifeseed img
 
 //text variables
 let iStrFound = [] //Array with the indexes of found strings
 ///alt mode
-let saladmode = true
+let saladmode = false
 
 function preload() {
   for (let i = 0; i < knotsNum; i++) { // initialize all available knots
@@ -60,6 +61,7 @@ function preload() {
   }
   loosejson = loadJSON("data/loosejson.json")
   keyWords = loadJSON("data/WordSets.json")
+  lifeSeed = loadImage("images/Lifeseed.png")
   for (let i = 0; i < 6; i++) { //initalizing 6 floater bois and pushing random rotations in a matching array
     floaters.push(loadImage("images/floater" + i + ".png"))
     floRots.push(random(-180, 180))
@@ -83,6 +85,7 @@ function setup() {
   texShader = createGraphics(windowWidth, windowHeight - 4, WEBGL)
   texShader1 = createGraphics(windowWidth, windowHeight - 4, WEBGL)
   sourceCanvas = createGraphics(windowWidth, windowHeight - 4) // shader 1 needs a canvas to draw pixels from, current canvas effect would be too ugly so we make an empty one
+  texShader2 = createGraphics(windowWidth, windowHeight - 4, WEBGL)
   gl = texShader.canvas.getContext('webgl')
   gl.disable(gl.DEPTH_TEST)
   noctaves = 5; // noise octaves def5
@@ -98,6 +101,24 @@ function setup() {
   texShader1.noStroke()
   sourceCanvas.background(0)
   ///
+  conway = new p5.Shader(texShader2._renderer, vert2, frag2) // Conway titlepage shader
+  texShader2.background(0)
+  texShader2.noStroke()
+  texShader2.fill(255)
+  // for (let y = -height / 2; y < height / 2; y += 5) {
+  //   for (let x = -width / 2; x < width / 2; x += 5) {
+  //     if (Math.random() < 0.5) texShader2.square(x, y, 5)
+  //   }
+  // }
+  texShader2.image(lifeSeed, -width / 2 + random(300), -height / 2 + random(300), random(width - 200), random(height - 200))
+  let r1 = (-width / 2) + random(width)
+  let r2 = (-width / 2) + random(height)
+  texShader2.image(lifeSeed, r1, r2, r1 + random(100), r2 + random(100))
+  texShader2.shader(conway)
+  conway.setUniform("state", texShader2._renderer)
+  conway.setUniform("u_windowWidth", width)
+  conway.setUniform("u_windowHeight", height)
+  // ///
   angleMode(DEGREES) // for the floaters rotations
 
   getAudioContext().suspend();
@@ -107,16 +128,13 @@ function setup() {
   noStroke();
   let cw = (width / 2)
   let ch = (height / 2)
-  bpointArray.push(new Bpoint(true, createVector(cw - 200, ch - 50), createVector(cw - 125, ch - 50), createVector(cw - 275, ch - 50), 0))
-  bpointArray.push(new Bpoint(true, createVector(cw - 200, ch + 50), createVector(cw - 275, ch + 50), createVector(cw - 125, ch + 50), 1))
-  bpointArray.push(new Bpoint(true, createVector(cw + 200, ch + 50), createVector(cw + 125, ch + 50), createVector(cw + 275, ch + 50), 2))
-  bpointArray.push(new Bpoint(true, createVector(cw + 200, ch - 50), createVector(cw + 275, ch - 50), createVector(cw + 125, ch - 50), 3))
-  for (let i = 0; i < bpointArray.length; i++) { // init baseArray
-    if (bpointArray[i].isBase) {
-      baseArray.push(bpointArray[i])
-    }
+  bpointArray.push(new Bpoint(true, createVector(cw, ch - 50), createVector(cw, ch - 50), createVector(cw - 75, ch - 50), 0))
+  bpointArray.push(new Bpoint(true, createVector(cw, ch + 50), createVector(cw - 75, ch + 50), createVector(cw, ch + 50), 1))
+  bpointArray.push(new Bpoint(true, createVector(cw, ch + 50), createVector(cw, ch + 50), createVector(cw + 75, ch + 50), 2))
+  bpointArray.push(new Bpoint(true, createVector(cw, ch - 50), createVector(cw + 75, ch - 50), createVector(cw, ch - 50), 3))
+  for (let b of bpointArray) {
+    if (b.isBase) baseArray.push(b)
   }
-
   // knotspaceX = createSlider(0, 100, 0)
   // knotspaceX.position(150, 5)
   // tempBezier = new Bezier(100,25 , 10,90 , 110,100 , 150,195) //Initializing tempBezier
@@ -178,85 +196,59 @@ function init24knots() {
   print("current Bpoints:" + bpointArray.length)
 }
 
-
 function draw() {
-  if (saladmode) {
-    wordSalad()
-  } else {
-    if (getAudioContext().state !== 'running') { // If audio context is running
-      background(38, 29, 29)
-      textFont('ubuntu')
-      textSize(width / 50)
-      textAlign(CENTER)
-      fill(255)
-      text('🎤 Click para activar micrófono, silba para navegar', width / 2, height / 2)
-      textSize(width / 24)
-      //textFont(acid)
-      fill(105, 2, 2)
-      text('Cómo ver con los ojos cerrados', (width / 2) + txRwalk, (height * .45) + tyRwalk)
-      textSize(width / 24.2)
-      fill(255, 175)
-      text('Cómo ver con los ojos cerrados', (width / 2), (height * .45))
-      let fac = .15
-      txRwalk += map(random(), 0, 1, -fac, fac)
-      tyRwalk += map(random(), 0, 1, -fac, fac)
-    } else {
-      if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
-        drawShader()
-      } else {
-        background(38, 29, 29)
-      }
-
-      imageMode(CENTER)
-      for (let i = 0; i < floaters.length; i++) { //drawing all floaters in the array
-        drawFloaters(floaters[i], i * 100, i) //passing floaterimg noiseseed and index
-      }
-      if (drawControls) {
-        for (let i = 0; i < bpointArray.length; i++) { //control Bpoints and handles
-          bpointArray[i].calcMouse();
-          bpointArray[i].displayBpoint();
-        }
-      }
-      drawBezier()
-      drawAttractor()
-
-      for (let w of whistlingArray) { // Checking if there's any whistling in the buffer
-        if (w > 0) {
-          whistling = true
-
-        }
-      }
-      whistlingArray.push(0) // cleaning Buffer
-      whistlingArray.shift()
-      if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
-        drawShader1() // after checking for whistling, drawShader1
-      }
-      if (whistling && !loosening) {
-        spectrum = fft.analyze()
-        spectralCentroid = fft.getCentroid()
-        fill(255)
-        textSize(15)
-        //text(round(spectralCentroid) + ' Hz', width / 2, 100)
-        // text('Vol:' + map(sound.getLevel(), .0006, .02, 0, 3), width / 2, 100)
-        // text('Hz:' + map(spectralCentroid, minHz, maxHz, 0, 3), width / 2, 50)
-        // centroids.push(spectralCentroid) //push Centroid to average it with previous
-        // centroids.shift()
-        // volumeBuffer.push(sound.getLevel()) //push Volume to average it with previous
-        // volumeBuffer.shift()
-        //interpolatebpointArray(knotspace)
-        //interpolatebpointArray2D(testknots)
-        sqInterpolatebpointArray2D(testknots)
-        //drawKeywords(true, chooseKeywords()) // drawKeywords(whistling  ?)
-        drawKeywords2D(true, chooseKeywords2D())
-        whistling = false // reset whistling
-      } else if (looseknot) { // if lknot active
-        interpolatetoLooseKnot(loosejson) // interpolate until the knot is loose
-        drawKeywords2D(false, chosenWordBuffer) // use the last randomly chosen word
-      }
-      //drawFoundtext()
-      drawFoundtext2D()
-      //print('amp:' + sound.getLevel())
+  if (getAudioContext().state !== 'running') { // If audio context is running
+    drawTitle()
+  } else if (!saladmode) {
+    (height < (width * 1.4)) ? drawShader(): background(38, 29, 29) // detecting mobile devices by aspect ratio
+    imageMode(CENTER)
+    for (let i = 0; i < floaters.length; i++) { //drawing all floaters in the array
+      drawFloaters(floaters[i], i * 100, i) //passing floaterimg noiseseed and index
     }
+    if (drawControls) {
+      for (let i = 0; i < bpointArray.length; i++) { //control Bpoints and handles
+        bpointArray[i].calcMouse();
+        bpointArray[i].displayBpoint();
+      }
+    }
+    drawBezier()
+    drawAttractor()
+
+    for (let w of whistlingArray) { // Checking if there's any whistling in the buffer
+      if (w > 0) whistling = true
+    }
+    whistlingArray.push(0) // cleaning Buffer
+    whistlingArray.shift()
+    if (height < (width * 1.4)) { // detecting mobile devices by aspect ratio
+      drawShader1() // after checking for whistling, drawShader1
+    }
+    if (whistling && !loosening) {
+      spectrum = fft.analyze()
+      spectralCentroid = fft.getCentroid()
+      fill(255)
+      textSize(15)
+      //text(round(spectralCentroid) + ' Hz', width / 2, 100)
+      // text('Vol:' + map(sound.getLevel(), .0006, .02, 0, 3), width / 2, 100)
+      // text('Hz:' + map(spectralCentroid, minHz, maxHz, 0, 3), width / 2, 50)
+      // centroids.push(spectralCentroid) //push Centroid to average it with previous
+      // centroids.shift()
+      // volumeBuffer.push(sound.getLevel()) //push Volume to average it with previous
+      // volumeBuffer.shift()
+      //interpolatebpointArray(knotspace)
+      //interpolatebpointArray2D(testknots)
+      sqInterpolatebpointArray2D(testknots)
+      //drawKeywords(true, chooseKeywords()) // drawKeywords(whistling  ?)
+      drawKeywords2D(true, chooseKeywords2D())
+      whistling = false // reset whistling
+    } else if (looseknot) { // if lknot active
+      interpolatetoLooseKnot(loosejson) // interpolate until the knot is loose
+      drawKeywords2D(false, chosenWordBuffer) // use the last randomly chosen word
+    }
+    //drawFoundtext()
+    drawFoundtext2D()
+    //print('amp:' + sound.getLevel())
+  } else {
+    wordSalad()
   }
 }
 
@@ -265,8 +257,9 @@ let lmouselines = []
 let knotTimeout = 255
 
 function wordSalad() {
-  background(38, 29, 29)
+  background(38, 29, 29, 230)
   strokeWeight(5)
+  noFill()
   let prevpos = createVector(pmouseX, pmouseY)
   if (mouseIsPressed && (mouselines.length < 175)) { // hard cap for mouselines size
     mouselines.push(prevpos)
@@ -277,46 +270,94 @@ function wordSalad() {
   }
   if (knotTimeout > 0) { // if the Timeout hasn't completed
     knotTimeout -= 1
-    let strokeBvar = floor(random(220, knotTimeout))
-    let strokeGvar = floor(random(220, knotTimeout))
+    let strokeBvar = floor(random(230, knotTimeout))
+    let strokeGvar = floor(random(230, knotTimeout))
     stroke(255, strokeBvar, strokeGvar)
     //stroke(255, strokeBvar, strokeGvar,knotTimeout)
-    let sOff = map(knotTimeout,0,255,25,0)
+    let sOff = map(knotTimeout, 0, 255, 25, 0)
     for (let i = 2; i < lmouselines.length - 1; i++) { // draw prevknot
-      curve(lmouselines[i + 1].x+sOff, lmouselines[i + 1].y+sOff,
-        lmouselines[i].x+sOff, lmouselines[i].y+sOff, lmouselines[i - 1].x+sOff, lmouselines[i - 1].y+sOff,
-        lmouselines[i - 2].x+sOff, lmouselines[i - 2].y+sOff)
+      curve(lmouselines[i + 1].x + sOff, lmouselines[i + 1].y + sOff,
+        lmouselines[i].x + sOff, lmouselines[i].y + sOff, lmouselines[i - 1].x + sOff, lmouselines[i - 1].y + sOff,
+        lmouselines[i - 2].x + sOff, lmouselines[i - 2].y + sOff)
     }
     if (lmouselines[5] != undefined) { //close knot
-      curve(lmouselines[2].x+sOff, lmouselines[2].y+sOff,
-        lmouselines[1].x+sOff, lmouselines[1].y+sOff, lmouselines[0].x+sOff, lmouselines[0].y+sOff,
-        lmouselines[0].x+sOff, lmouselines[0].y+sOff,
+      curve(lmouselines[2].x + sOff, lmouselines[2].y + sOff,
+        lmouselines[1].x + sOff, lmouselines[1].y + sOff, lmouselines[0].x + sOff, lmouselines[0].y + sOff,
+        lmouselines[0].x + sOff, lmouselines[0].y + sOff,
       ) // draw starting and closing curves
-      curve(lmouselines[lmouselines.length - 1].x+sOff, lmouselines[lmouselines.length - 1].y+sOff,
-        lmouselines[lmouselines.length - 1].x+sOff, lmouselines[lmouselines.length - 1].y+sOff, lmouselines[lmouselines.length - 2].x+sOff, lmouselines[lmouselines.length - 2].y+sOff,
-        lmouselines[lmouselines.length - 3].x+sOff, lmouselines[lmouselines.length - 3].y+sOff,
+      curve(lmouselines[lmouselines.length - 1].x + sOff, lmouselines[lmouselines.length - 1].y + sOff,
+        lmouselines[lmouselines.length - 1].x + sOff, lmouselines[lmouselines.length - 1].y + sOff, lmouselines[lmouselines.length - 2].x + sOff, lmouselines[lmouselines.length - 2].y + sOff,
+        lmouselines[lmouselines.length - 3].x + sOff, lmouselines[lmouselines.length - 3].y + sOff,
       )
       let h1 = p5.Vector.lerp(lmouselines[0], lmouselines[1], -10)
       let h2 = p5.Vector.lerp(lmouselines[lmouselines.length - 1], lmouselines[lmouselines.length - 2], -10)
-      noFill()
-      bezier(lmouselines[0].x+sOff, lmouselines[0].y+sOff, //anchor1
+      bezier(lmouselines[0].x + sOff, lmouselines[0].y + sOff, //anchor1
         h1.x, h1.y, //ctrl1
         h2.x, h2.y, //ctrl2
-        lmouselines[lmouselines.length - 1].x+sOff, lmouselines[lmouselines.length - 1].y+sOff) //anchor2
+        lmouselines[lmouselines.length - 1].x + sOff, lmouselines[lmouselines.length - 1].y + sOff) //anchor2
     }
     background(38, 29, 29, map(knotTimeout, 0, 255, 255, 0))
   }
+  stroke(255)
+  strokeWeight(1)
+  line(0, height - 50, width, height - 50)
+  noStroke()
+  fill(255)
+  text('Ir a la versión con micrófono', width / 2, height - 15)
+  for (let i = 0; i < 100; i++) {
+    let rX = random(width)
+    let rY = random(height - 50)
+    let rS = makeString(1)
+    text(rS, rX, rY)
+  }
 }
 
-function saladLetter(x,y){
-this.pos = createVector(x,y)
-this.value = random(1)
+function makeString(length) {
+  let result = '';
+  let characters = 'abcdefghijklmnñopqrstuvwxyz␦␚';
+  let charactersLength = characters.length;
+  for (var i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  return result
+}
+
+function saladLetter(x, y) {
+  this.pos = createVector(x, y)
+  this.value = random(1)
 }
 
 function mouseReleased() {
   knotTimeout = 255
   lmouselines = [...mouselines] //spread operator to duplicate array, not referencing it
   mouselines.splice(0, mouselines.length)
+}
+
+function drawTitle() {
+  drawShader2()
+  background(38, 29, 29, 200)
+  noStroke()
+  textFont('ubuntu')
+  textSize(10 + (height / 75))
+  textAlign(CENTER)
+  fill(255)
+  text('🎤 Click para activar micrófono, silba para navegar', 5 + (width / 2), 5 + (height / 2))
+  textSize(11 + (height / 40))
+  fill(105, 2, 2)
+  text('Cómo ver con los ojos cerrados', (width / 2) + txRwalk, (height * .45) + tyRwalk)
+  textSize(11 + (height / 40))
+  fill(255, 175)
+  text('Cómo ver con los ojos cerrados', (width / 2), (height * .45))
+  let fac = .1
+  txRwalk += map(random(), 0, 1, -fac, fac)
+  tyRwalk += map(random(), 0, 1, -fac, fac)
+  fill(255, 100)
+  textSize(10 + (height / 65))
+  text(`No tengo
+micrófono
+  🔇`, width - 100, height - 100)
+  fill(255, 240, 240, 10)
+  circle(width, height, 500)
 }
 
 function drawShader() {
@@ -357,6 +398,11 @@ function drawShader1() {
   blendMode(SCREEN) //this was separated into 2 steps after whistling, but it was unnecesary
   image(sourceCanvas, 0, 0)
   blendMode(BLEND)
+}
+
+function drawShader2() {
+  texShader2.rect(0, 0, width, height)
+  image(texShader2, 0, 0, width, height)
 }
 
 function analyzeSound() { // Activates whistling switch, function executed whenever whistling is detected by library
@@ -1366,10 +1412,16 @@ function mousePressed() { //Activate audio, Points activate with a click before 
     }
   }
   if (!permissiongiven) {
-    permissiongiven = true // variable so that this only is defined once
-    userStartAudio() // p5 sound is initialized
-    whistlerr.detect(() => analyzeSound()) // Whistlerr needs to recieve a function created right here
+    if ((mouseX > (width - 200)) && (mouseY > (height - 200))) {
+      saladmode = true
+      userStartAudio()
+    } else {
+      permissiongiven = true // variable so that this only is defined once
+      userStartAudio() // p5 sound is initialized
+      whistlerr.detect(() => analyzeSound()) // Whistlerr needs to recieve a function created right here
+    }
   }
+  if (saladmode && (mouseY > (height - 50))) saladmode = false
 }
 
 function mouseDragged() {
@@ -1776,3 +1828,56 @@ void main() {
   gl_Position = positionVec4;
 }
 `;
+
+
+
+
+const vert2 = `
+		attribute vec3 aPosition;
+		attribute vec2 aTexCoord;
+
+		varying vec2 vTexCoord;
+
+		void main() {
+			vTexCoord = aTexCoord;
+
+			vec4 positionVec4 = vec4(aPosition, 1.0);
+			positionVec4.xy = positionVec4.xy * 2.0 - 1.0;
+
+			gl_Position = positionVec4;
+		}
+`;
+
+const frag2 = `
+		precision mediump float;
+
+		varying vec2 vTexCoord;
+		uniform sampler2D state;
+    uniform float u_windowWidth;
+    uniform float u_windowHeight;
+
+		void main() {
+			int sum = 0;
+
+			sum += int(texture2D(state, vec2((gl_FragCoord.x + 4.0) / u_windowWidth, 1.0 - (gl_FragCoord.y + 4.0) / u_windowHeight)).r); // def 1.0 instead of 4.0
+			sum += int(texture2D(state, vec2((gl_FragCoord.x + 4.0) / u_windowWidth, 1.0 - (gl_FragCoord.y      ) / u_windowHeight)).r);
+			sum += int(texture2D(state, vec2((gl_FragCoord.x + 4.0) / u_windowWidth, 1.0 - (gl_FragCoord.y - 4.0) / u_windowHeight)).r);
+			sum += int(texture2D(state, vec2((gl_FragCoord.x      ) / u_windowWidth, 1.0 - (gl_FragCoord.y - 4.0) / u_windowHeight)).r);
+			sum += int(texture2D(state, vec2((gl_FragCoord.x - 4.0) / u_windowWidth, 1.0 - (gl_FragCoord.y - 4.0) / u_windowHeight)).r);
+			sum += int(texture2D(state, vec2((gl_FragCoord.x - 4.0) / u_windowWidth, 1.0 - (gl_FragCoord.y      ) / u_windowHeight)).r);
+			sum += int(texture2D(state, vec2((gl_FragCoord.x - 4.0) / u_windowWidth, 1.0 - (gl_FragCoord.y + 4.0) / u_windowHeight)).r);
+			sum += int(texture2D(state, vec2((gl_FragCoord.x      ) / u_windowWidth, 1.0 - (gl_FragCoord.y + 4.0) / u_windowHeight)).r);
+
+ 			if (sum == 3) {
+         gl_FragColor = vec4(1.0, .0, .0, 1.0); // def 1,1,1
+       } else if (sum == 2) {
+ 				float current = texture2D(state, vec2(vTexCoord.x, 1.0 - vTexCoord.y)).r;
+        // gl_FragColor = vec4(current, current, current, 1.0);
+ 				gl_FragColor = vec4(current +.0025, .3, 1.0, 1.0);
+ 			} else {
+        gl_FragColor = vec4(.05, .1,.0, 1.0); // def 0,0,0
+      }
+		}
+`;
+
+//fragColor = vec4(hsv2rgb(vec3(textel.g, textel.r * vec2(0.2, 0.8) + vec2(0.8, 0.2))), 1);
